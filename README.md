@@ -1,7 +1,7 @@
-# geeCRT a package for implementing the bias-corrected generalized estimating equations in analyzing cluster randomized trials
+# geeCRT: a package for implementing the bias-corrected generalized estimating equations in analyzing cluster randomized trials
 Hengshi Yu, Fan Li, Paul Rathouz, Elizabeth L. Turner, John Preisser 
 
-[[paper]](https://academic.oup.com/biostatistics/advance-article/doi/10.1093/biostatistics/kxaa056/6126172), [[arXiv]](https://arxiv.org/abs/2101.00484), [[R package]](https://cran.r-project.org/web/packages/geeCRT/index.html),[[example code]](https://github.com/lifanfrank/clusterperiod_GEE)
+[[paper]](https://academic.oup.com/biostatistics/advance-article/doi/10.1093/biostatistics/kxaa056/6126172) | [[arXiv]](https://arxiv.org/abs/2101.00484) | [[R package]](https://cran.r-project.org/web/packages/geeCRT/index.html) | [[example code]](https://github.com/lifanfrank/clusterperiod_GEE)
 
 **Maintainer**: Hengshi Yu <hengshi@umich.edu>
 
@@ -501,3 +501,7 @@ y_ed = simbinCLF(mu = mu, Sigma = Sigma, n = n)
 ## Installation
 
 The `geeCRT` R package is available on CRAN.
+```
+install.packages('geeCRT')
+```
+
