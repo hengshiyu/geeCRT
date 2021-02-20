@@ -3,7 +3,7 @@ Hengshi Yu, Fan Li, Paul Rathouz, Elizabeth L. Turner, John Preisser
 
 [[paper]](https://academic.oup.com/biostatistics/advance-article/doi/10.1093/biostatistics/kxaa056/6126172) | [[arXiv]](https://arxiv.org/abs/2101.00484) | [[R package]](https://cran.r-project.org/web/packages/geeCRT/index.html) | [[example code]](https://github.com/lifanfrank/clusterperiod_GEE)
 
-**Maintainer**: Hengshi Yu <hengshi@umich.edu>
+**Maintainer**: Hengshi Yu (<hengshi@umich.edu>)
 
 geeCRT is an R package for implementing the bias-corrected generalized estimating equations in analyzing cluster randomized trials.
 
@@ -55,6 +55,12 @@ The geeCRT package constains four main functions. In the analysis of individual-
     * Qaqish, B. F. (2003). A family of multivariate binary distributions for simulating correlated binary variables with specified marginal means and correlations. Biometrika, 90(2), 455-463.
     * Preisser, J. S., Qaqish, B. F. (2014). A comparison of methods for simulating correlated binary variables with specified marginal means and correlations. Journal of Statistical Computation and Simulation, 84(11), 2441-2452.
 
+## Installation
+
+The `geeCRT` R package is available on CRAN.
+```
+install.packages('geeCRT')
+```
 
 ### `geemaee()` example: matrix-adjusted GEE for estimating the mean and correlation parameters in CRTs
 
@@ -498,10 +504,5 @@ y_ed = simbinCLF(mu = mu, Sigma = Sigma, n = n)
 
 
 
-## Installation
 
-The `geeCRT` R package is available on CRAN.
-```
-install.packages('geeCRT')
-```
 
