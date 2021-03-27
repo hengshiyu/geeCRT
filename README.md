@@ -5,7 +5,7 @@ Hengshi Yu, Fan Li, Paul Rathouz, Elizabeth L. Turner, John Preisser
 
 **Maintainer**: Hengshi Yu (<hengshi@umich.edu>)
 
-geeCRT is an R package for implementing the bias-corrected generalized estimating equations in analyzing cluster randomized trials.
+geeCRT is a R package for implementing the bias-corrected generalized estimating equations in analyzing cluster randomized trials.
 
 Population-averaged models have been increasingly used in the design and analysis of cluster randomized trials (CRTs). To facilitate the applications of population-averaged models in CRTs, we implement the generalized estimating equations (GEE) and matrix-adjusted estimating equations (MAEE) approaches to jointly estimate the marginal mean models correlation models both for general CRTs and stepped wedge CRTs.
 
