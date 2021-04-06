@@ -91,7 +91,7 @@
 
 
 
-simbinCLF <- function(mu, Sigma, n = 1){
+simbinCLF <- function (mu, Sigma, n = 1) {
 
 
 
@@ -103,7 +103,7 @@ simbinCLF <- function(mu, Sigma, n = 1){
   # a[,] is assumed +ve definite symmetric, not checked.
   ########################################################
 
-  allreg<-function(a){
+  allreg <- function (a) {
     n <- nrow(a)
     b <- a
     for(t in 2:n){

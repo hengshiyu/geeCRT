@@ -1,0 +1,307 @@
+---
+title: "geeCRT package"
+author: "Hengshi Yu, Fan Li, John A. Gallis and  Elizabeth L. Turner"
+date: "`r Sys.Date()`"
+bibliography: references.bib
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{geeCRT package for the design and analysis of cluster randomized trials}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+```{r start,echo=FALSE,results="hide"}
+
+library(geeCRT)
+
+
+```
+
+
+## Overview
+cvcrand is an R package for the design and analysis of cluster randomized trials (CRTs). 
+
+Given the baseline values of some cluster-level covariates, users can perform a constrained randomization on the clusters into two arms, with an optional input of user-defined weights on the covariates. 
+
+At the end of the study, the individual outcome is collected. The `cvcrand` package also performs clustered permutation test on either continuous outcome or binary outcome adjusted for some individual-level covariates, producing p-value of the intervention effect.
+
+
+
+
+## Design: covariate-constrained randomization
+
+In the design of CRTs with two arms, users can use the `cvrall()` function to perform covariate-constrained randomization or `cvrcov()` function to perform covariate-by-covariate constrained randomization. And for the analysis part, user would use the `cptest()` function for clustered permutation test. 
+
+A cluster is the unit of randomization for a cluster randomized trial. Thus, when the number of clusters is small, there might be some baseline imbalance from the randomization between the arms. Constrained randomization constrained the randomization space to randomization schemes with smaller difference among the covariates between the two arms. 
+
+The balance score for constrained randomization in the program is developed from [@raab2001balance]. Suppose $n$, $n_T$, and $n_C$ are the total number of clusters, the number of clusters in the treatment arm and the control arm respectively. Suppose also that there are $K$ cluster-level variables including the continuous covariates as well as the dummy variables created from the categorical covariates. $x_{ik}$ is the $k$th covariate ($k=1,\ldots,K$) of cluster $i$. $\bar{x}_{Tk}=\sum_{i=1}^{n_T}x_{ik}/n_T$ and $\bar{x}_{Ck}=\sum_{i=n_T+1}^{n}x_{ik}/n_C$ are the means of the $k$th cluster-level variable in the treatment arm and the control arm, respectively, and $\omega_{k}$ is a pre-determined weight for the $k$th variable. We choose $\omega_{k}$ to be the inverse of the variance of the $k$th variable across all clusters following [@raab2001balance] and [@li2016evaluation], namely $\omega_k={1}/{s_k^2}=\frac{n-1}{\sum_{i=1}^n(x_{ik}-\bar{x}_k)^2}$ with $\bar{x}_k=\sum_{i=1}^nx_{ik}/n$. 
+
+There are two choices of metric for the balance score. The balance score of the `"l2"` metric is defined as $B_{(l2)}=\sum_{k=1}^{K}\omega_k(\bar{x}_{Tk}-\bar{x}_{Ck})^2$. And if `"l1"` metric from [@li2017evaluation] is specified, the balance score is defined as $B_{(l1)}=\sum_{k=1}^{K}\tilde{\omega}_k\left|\bar{x}_{Tk}-\bar{x}_{Ck}\right|$, where $\tilde{\omega}_k$ is chosen to be the inverse of the standard deviation of the $k$th variable $s_k$. 
+
+To reflect the relative importance of different baseline covariates, one may include user-defined weights in the `"l1"` and `"l2"` balance metrics. The `"l2"` balance metric is set to be $B_{(l2)}=\sum_{k=1}^{K}d_k\omega_k(\bar{x}_{Tk}-\bar{x}_{Ck})^2$, where $d_k$ is the user-defined weight for the $k$th variable. By default, $d_k=1$ for all variables. A large user-defined weight $d_k>1$ could be assigned to a variable of importance when assessing the balance scores. Similarly, we modify the $l1$ balance metric by allowing for user-defined weight as $B_{(l1)}=\sum_{k=1}^{K}d_k\tilde{\omega}_k\left|\bar{x}_{Tk}-\bar{x}_{Ck}\right|$. 
+
+With the baseline values of the specified cluster-level covariates in a cluster randomized trail, the `cvrall()` function in the `cvcrand` package is used to perform the covariate-constrained randomization. 
+
+Each categorical variable is transformed into dummy variables to calculate the balance score. When transforming a categorical variable to dummy variables, the reference level will be dropped if the categorical variable is specified as a factor. Otherwise, the first level in the alphanumerical order will be dropped. Users can also specify a certain reference level for each categorical variable by manually coding dummy variables before running the `cvrall()` function. In addition to constraining the randomization space via a scalar summary score, we developed the `cvrcov()` function to implement constrained randomization with baseline balance defined directly through each covariate.
+
+We followed the routine developed by [@greene2017sas] to give covariate-by-covariate constraints based on arm mean difference or arm total difference. For each covariate to be considered for constrained randomization, a specific constraint is to be specified by users. The constraint of `"any"` means no constraints. If not `"any"`, the first character letter of `"m"` denotes absolute mean difference, and `"s"` means absolute sum difference. If the second character is `"f"`, the previous metric is constrained to be smaller or equal to the fraction with the number followed of the overall mean for `"m"` or mean arm total for `"s"`. If not `"f"` at the second character, the metric is just constrained to be smaller or equal to the value followed.
+
+To check the randomization validity ([@bailey1987valid]), the argument of `check_validity` in both `cvrall()` and `cvrcov()` functions could be specified to be `TRUE`. Then the functions would provide summary statistics on cluster pairs that always or never appear together in the same arm, which might imply the validity of randomization. 
+
+
+## `cvrall()` example for covariate-constrained randomization
+
+A study presented by [@dickinson2015pragmatic] is about two approaches (interventions) for increasing the "up-to-date" immunization rate in 19- to 35-month-old children. They planned to randomize 16 counties in Colorado 1:1 to either a population-based approach or a practice-based approach. There are several county-level variables. The program will randomize on a subset of these variables. The continuous variable of average income is categorized to illustrate the use of the `cvrall()` on multi-category variables. The percentage in Colorado Immunization Information System (CIIS) variable is trancated at 100%.
+
+
+```{r, echo=FALSE, results='asis'}
+knitr::kable(Dickinson_design[ , 1:6])
+```
+
+```{r, echo=FALSE, results='asis'}
+knitr::kable(Dickinson_design[ , 7:11])
+```
+
+
+For the covariate-constrained randomization, we used the `cvrall()` function to randomize 8 out of the 16 counties into the practice-based. For the definition of the whole randomization space, if the total number of all possible schemes is smaller than `50,000`, we enumerate all the schemes as the whole randomization space. Otherwise, we simulate `50,000` schemes and choose the unique shemes among them as the whole randomization space. We calculate the balance scores of `"l2"` metric on three continuous covariates as well as two categorical covariates of location and income category. Location has `"Rural"` and `"Urban"`. The level of `"Rural"` was then dropped in `cvrall()`. As income category has three levels of `"low"`, `"med"`, and `"high"`,  the level of `"high"` was dropped to create dummy variables according to the alphanumerical order as well. Then we constrained the randomization space to the schemes with `"l2"` balance scores less than the `0.1` quantile of that in the whole randomization space. Finally, a randomization scheme is sampled from the constrained space. 
+
+We saved the constrained randomization space in a CSV file in `"dickinson_constrained.csv"`, the first column of which is an indicator variable of the finally selected scheme (`1`) or not (`0`). We also saved the balance scores of the whole randomization space in a CSV file in `"dickinson_bscores.csv"`, and output a histogram displaying the distribution of all balance scores with a red line indicating our selected cutoff (the `0.1` quantile).  
+
+
+
+```{r cvrall, fig.keep="all", fig.width = 7, fig.height=4}
+
+ Design_result <- cvrall(clustername = Dickinson_design$county,
+                  balancemetric = "l2",
+                  x = data.frame(Dickinson_design[ , c("location", "inciis",
+                      "uptodateonimmunizations", "hispanic", "incomecat")]),
+                  ntotal_cluster = 16,
+                  ntrt_cluster = 8,
+                  categorical = c("location", "incomecat"),
+                  ###### Option to save the constrained space #####
+                  # savedata = "dickinson_constrained.csv",
+                  bhist = TRUE,
+                  cutoff = 0.1,
+                  seed = 12345)
+ 
+
+```
+
+
+The we had the following output: 
+```{r set-options1, echo=FALSE, fig.keep="all", fig.width = 7, fig.height=4}
+options(width = 100)
+ 
+```
+
+```{r , fig.keep="all", fig.width = 7, fig.height=4}
+ # the balance metric used
+ Design_result$balancemetric
+
+ # the allocation scheme from constrained randomization
+ Design_result$allocation
+ 
+ # the histogram of the balance score with respect to the balance metric
+ Design_result$bscores
+ 
+ # the statement about how many clusters to be randomized to the intervention and the control arms respectively
+ Design_result$assignment_message
+ 
+ # the statement about how to get the whole randomization space to use in constrained randomization
+ Design_result$scheme_message
+ 
+ # the statement about the cutoff in the constrained space
+ Design_result$cutoff_message
+ 
+ # the statement about the selected scheme from constrained randomization
+ Design_result$choice_message
+ 
+ 
+ # the data frame containing the allocation scheme, the clustername as well as the original data frame of covariates
+ Design_result$data_CR
+ 
+ # the descriptive statistics for all the variables by the two arms from the selected scheme
+ Design_result$baseline_table
+
+ # the cluster pair descriptive, which is useful for valid randomization check
+ Design_result$cluster_coin_des
+
+ # the overall allocation summary
+ Design_result$overall_allocations
+
+```
+
+From the output of `Design_result$baseline_table`, the selected scheme is able to properly balance the baseline values of the covariates. The selected scheme is shown in `Design_result$allocation`. 
+
+## `cvrall()` example for stratified constrained randomization
+
+User-defined weights can be used to induce stratification on one or more categorical variables. In the study presented by [@dickinson2015pragmatic], there are 8 `"Urban"` and 8 `"Rural"` counties. A user-defined weight of `1,000` is added to the covariate of `location`, while these weights for other covariates are all `1`. Intuitively, a large weight assigned to a covariate sharply penalizes any imbalance of that covariates, therefore including schemes that are optimally balanced with respect to that covariate in the constrained randomization space. In practice, the resulting constrained space approximates the stratified randomization space on that covariate. In our illustrative data example, since half of the counties are located in rural areas, perfect balance is achieved by considering constrained randomization with the large weight for `location` variable. Alternatively, the option of `stratify` is able to perform the equivalent stratification on the stratifying variables specified.
+
+```{r cvrallst1, fig.keep="all", fig.width = 7, fig.height=4}
+# Stratification on location, with constrained randomization on other specified covariates
+
+Design_stratified_result1 <- cvrall(clustername = Dickinson_design$county,
+                                     balancemetric = "l2",
+                                     x = data.frame(Dickinson_design[ , c("location", "inciis", 
+                                                                          "uptodateonimmunizations", 
+                                                                          "hispanic", "incomecat")]),
+                                     ntotal_cluster = 16,
+                                     ntrt_cluster = 8,
+                                     categorical = c("location", "incomecat"),
+                                     weights = c(1000, 1, 1, 1, 1),
+                                     cutoff = 0.1,
+                                     seed = 12345) 
+
+```
+
+```{r , fig.keep="all", fig.width = 7, fig.height=4}
+Design_stratified_result1$baseline_table
+
+```
+
+```{r cvrallst2, fig.keep="all", fig.width = 7, fig.height=4}
+# An alternative and equivalent way to stratify on location
+
+Design_stratified_result2 <- cvrall(clustername = Dickinson_design$county,
+                                     balancemetric = "l2",
+                                     x = data.frame(Dickinson_design[ , c("location", "inciis",
+                                                                          "uptodateonimmunizations", 
+                                                                          "hispanic", "incomecat")]),
+                                     ntotal_cluster = 16,
+                                     ntrt_cluster = 8,
+                                     categorical = c("location", "incomecat"),
+                                     stratify = "location",
+                                     cutoff = 0.1,
+                                     seed = 12345, 
+                                     check_validity = TRUE)
+
+```
+
+
+
+
+```{r , fig.keep="all", fig.width = 7, fig.height=4}
+Design_stratified_result2$baseline_table
+
+```
+The results from `Design_stratified_result1$baseline_table` and `Design_stratified_result2$baseline_table` are the same. The final selected scheme from cvrall() now has 4 `"Urban"` counties in both arms. The `location` covariate has been stratified for the randomization for the randomization through the `weights` or `stratify` argument in the ` cvrall()` function. 
+
+
+## `cvrcov()` example for covariate-by-covariate constrained randomization
+
+
+For the covariate-by-covariate randomization, we used the `cvrcov()` function to randomize 8 out of the 16 counties into the practice-based. For the definition of the whole randomization space, if the total number of all possible schemes is smaller than `100,000`, we enumerate all the schemes as the whole randomization space. Otherwise, we simulate `100,000` unique schemes. Location has `"Rural"` and `"Urban"`. The level of `"Rural"` was then kept as 1 in `cvrcov()` and `"Urban"` is 0. Then we constrained the randomization space to have the schemes with absolute total difference of location be smaller than or equal to `5`, absolute mean difference of percentages of children ages 19-35 months in the CIIS less than or equal to `0.5` fraction of the overall mean, and absolute mean difference of income to be less than or equal to the `0.4` fraction of the overall mean. Finally, a randomization scheme is sampled from the constrained space. 
+
+We saved the constrained randomization space in a CSV file in `"dickinson_cov_constrained.csv"`, the first column of which is an indicator variable of the finally selected scheme (`1`) or not (`0`). 
+
+
+
+```{r cvrcov, fig.keep="all", fig.width = 7, fig.height=4}
+
+# change the categorical variable of interest to have numeric representation
+Dickinson_design_numeric <- Dickinson_design
+Dickinson_design_numeric$location = (Dickinson_design$location == "Rural") * 1
+
+Design_cov_result <- cvrcov(clustername = Dickinson_design_numeric$county,
+                            x = data.frame(Dickinson_design_numeric[ , c("location", "inciis", 
+                                                                          "uptodateonimmunizations", 
+                                                                          "hispanic", "income")]),
+                            ntotal_cluster = 16,
+                            ntrt_cluster = 8,
+                            constraints = c("s5", "mf.5", "any", "any", "mf0.4"), 
+                            categorical = c("location"),
+                            ###### Option to save the constrained space #####
+                            # savedata = "dickinson_cov_constrained.csv",
+                            seed = 12345, 
+                            check_validity = TRUE)
+ 
+
+```
+
+
+The we had the following output: 
+```{r set-options2, echo=FALSE, fig.keep="all", fig.width = 7, fig.height=4}
+options(width = 100)
+ 
+```
+
+```{r , fig.keep="all", fig.width = 7, fig.height=4}
+
+
+ # the allocation scheme from constrained randomization
+ Design_cov_result$allocation
+ 
+
+ # the statement about how many clusters to be randomized to the intervention and the control arms respectively
+ Design_cov_result$assignment_message
+ 
+ # the statement about how to get the whole randomization space to use in constrained randomization
+ Design_cov_result$scheme_message
+ 
+
+ # the data frame containing the allocation scheme, the clustername as well as the original data frame of covariates
+ Design_cov_result$data_CR
+ 
+ # the descriptive statistics for all the variables by the two arms from the selected scheme
+ Design_cov_result$baseline_table
+
+# the cluster pair descriptive, which is useful for valid randomization check
+Design_cov_result$cluster_coin_des
+
+# the overall allocation summary
+Design_cov_result$overall_allocations
+
+```
+
+From the output of `Design_cov_result$baseline_table`, the selected scheme is able to properly balance the baseline values of the covariates. The selected scheme is shown in `Design_cov_result$allocation`. 
+
+
+## Analysis: clustered permutation test
+
+At the end of cluster randomized trials, individual outcomes are collected. Permutation test based on [@gail1996design] and [@li2016evaluation] is then applied to the continuous or binary outcome with some individual-level covariates. 
+
+The permutation test is implemented in a two-step procedure. In the first step, an outcome regression model is fitted for response $Y_{ij}$ with covariates $\textbf{z}_{ij}$. This is done by fitting a linear regression model for continuous responses and a logistic regression model for binary responses [@gail1996design], ignoring the clustering of responses. The individual residual $r_{ij}=Y_{ij}-\hat{Y}_{ij}$ can be calculated from the predicted response for each individual by $\hat{Y}_{ij}$. In the second step, cluster-specific residual means are obtained as $\bar{r}_{i\cdot}=\sum_{j=1}^{m_i}r_{ij}/m_i$. The observed test statistic is then computed as $U=\frac{1}{n_T}\sum_{i=1}^nW_i\bar{r}_{i\cdot}-
+\frac{1}{n_C}\sum_{i=1}^n(1-W_i)\bar{r}_{i\cdot}$, where $W_i=1$ if the $i$th cluster is assigned to the treatment arm and $W_i=0$ otherwise, and $n_T=\sum_{i=1}^nW_i$, $n_C=\sum_{i=1}^n(1-W_i)$ are the number of treated and control clusters.
+
+Suppose there are $S$ randomization schemes in the constrained randomization space. To obtain the permutation distribution of the test statistic, we permute the labels of the treatment indicator according to the constrained randomization space, and compute a value of $U_s$ ($s=1,\ldots,S$). The collection of these values $\{U_s:s=1,\ldots,S\}$ forms the null distribution of the permutation test statistic. The p-value is then computed by $\text{p-value}=\frac{1}{S}\sum_{s=1}^S \mathbb{I}(|U_s|\geq |U|)$. 
+
+The `cptest()` function in the `cvcrand` package is used to perform the permutation test for the intervention effect of cluster randomized trials. 
+
+Each categorical variable is transformed into dummy variables to fit in the linear model or logistic regression for the permutation test. When transforming a categorical variable to dummy variables, the reference level will be dropped if the categorical variable is specified as a factor. Otherwise, the first level in the alphanumerical order will be dropped. Users can also specify a certain reference level for each categorical variable by manually coding dummy variables before running the `cptest()` function.
+
+## `cptest()` example
+
+Suppose that the researchers were able to assess 300 children in each cluster in a study presented by [@dickinson2015pragmatic], and the cluster randomized trial is processed with the selected randomization scheme from the example above of the `cvrall()` function. We expanded the values of the cluster-level covariates on the covariates' values of the individuals, according to which cluster they belong to. The correlated individual outcome of up-to-date on immunizations (`1`) or not (`0`) is then simulated using a generalized linear mixed model (GLMM) with a logistic link to induce correlation by including a random effect at the county level. The intracluster correlation (ICC) was set to be 0.01, using the latent response definition provided in [@eldridge2009intra]. This is a reasonable value for population health studies [@hannan1994parameters]. We simulated one data set, with the outcome data dependent on the county-level covariates used in the constrained randomization design and a positive treatment effect so that the practice-based intervention increases up-to-date immunization rates more than the community-based intervention. For each individual child, the outcome is equal to `1` if he or she is up-to-date on immunizations and `0` otherwise.
+
+```{r, echo=FALSE, results='asis'}
+knitr::kable(head(Dickinson_outcome, 10))
+```
+
+We used the `cptest()` function to process the clustered permutation test on the binary outcome of the status of up-to-date on immunizations. We input the file about the constrained space with the first column indicating the final scheme. The permutation test is on the continuous covariates of `"inciis"`, `"uptodateonimmunizations"`, `"hispanic"`, as well as categorical variables of `"location"` and `"incomecat"`. Location has `"Rural"` and `"Urban"`. The level of `"Rural"` was then dropped in `cptest()`. As income category has three levels of `"low"`, `"med"`, and `"high"`,  the level of `"high"` was dropped to create dummy variables according to the alphanumerical order as well.
+
+```{r cptest, fig.keep="all", fig.width = 7, fig.height=4}
+ Analysis_result <- cptest(outcome = Dickinson_outcome$outcome,
+                           clustername = Dickinson_outcome$county,
+                           z = data.frame(Dickinson_outcome[ , c("location", "inciis",
+                               "uptodateonimmunizations", "hispanic", "incomecat")]), 
+                            cspacedatname = system.file("dickinson_constrained.csv", package = "cvcrand"),                                 
+                           outcometype = "binary",                                                      
+                           categorical = c("location","incomecat"))
+
+
+``` 
+
+The result of `"cptest()"` includes the final scheme for the cluster randomized trial, the p-value from the permutation test as well as a statement about that p-value.
+
+```{r cptestre, fig.keep="all", fig.width = 7, fig.height=4}
+ Analysis_result 
+``` 
+
+From the p-value of `0.042` in `Analysis_result`, the probability of up-to-date on immunizations for the practice-based approach (`1`) is significantly different from that for the population-based approach (`0`). 
+
+# Session Information
+
+```{r info, results='markup', echo=FALSE}
+sessionInfo()
+```
+
+# References

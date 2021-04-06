@@ -1,6 +1,4 @@
-contMAEE = function(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink, makevone)
-
-  {
+contMAEE = function (y, X, id, Z, maxiter, epsilon, printrange, alpadj, shrink, makevone) {
 
   #####################################################################################
   # MODULE: BEGINEND
@@ -14,7 +12,7 @@ contMAEE = function(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink
   # last: Vector with ending row for cluster i
   #####################################################################################
 
-  BEGINEND = function(n){
+  BEGINEND = function (n) {
     last = cumsum(n)
     first = last - n + 1
     return(cbind(first, last))
@@ -47,8 +45,8 @@ contMAEE = function(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink
   # Row of -E(d(corr)/dbeta) matrix
   #####################################################################################
 
-  GETROWB = function(mu, gamma, j, k, X, y){
-    row = gamma*(X[j,]/(y[j]-mu[j]) + X[k,]/(y[k]-mu[k]))
+  GETROWB = function (mu, gamma, j, k, X, y) {
+    row = gamma * (X[j,]/(y[j] - mu[j]) + X[k,]/(y[k] - mu[k]))
     return(row)
   }
 
@@ -64,7 +62,7 @@ contMAEE = function(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink
   # residuals for beta estimating equation
   #####################################################################################
 
-  CREATEA = function(mu,y){
+  CREATEA = function (mu, y) {
     return(y - mu)
   }
 
@@ -81,12 +79,12 @@ contMAEE = function(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink
   # covariance matrix for beta estimating equation
   #####################################################################################
 
-  CREATEB = function(s2, gamma, n){
-    B = diag(rep(s2,n))
-    l=1
-    for(j in 1:(n-1)){
-      for(k in (j+1):n){
-        B[j,k] <- s2 * gamma[l]
+  CREATEB = function (s2, gamma, n) {
+    B = diag(rep(s2, n))
+    l = 1
+    for (j in 1:(n - 1)) {
+      for (k in (j + 1):n) {
+        B[j, k] = s2 * gamma[l]
         l = l + 1
       }
     }
@@ -99,20 +97,20 @@ contMAEE = function(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink
   # Generates moment estimates for dispersion parameter
   #####################################################################################
 
-  PHI <- function(Ustar, beta, alpha, y, X, Z, n, p,
-                q, s2, NPSDADJFLAG){
+  PHI = function (Ustar, beta, alpha, y, X, Z, n, p,
+                  q, s2, NPSDADJFLAG) {
 
     RSS = 0
-    naive = ginv(Ustar[1:p,1:p])
+    naive = ginv(Ustar[1:p, 1:p])
 
     locx = BEGINEND(n)
-    locz = BEGINEND(choose(n,2))
+    locz = BEGINEND(choose(n, 2))
 
-    for(i in 1:length(n)){
+    for (i in 1:length(n)) {
 
-      X_c = X[locx[i,1]:locx[i,2],,drop=FALSE]
-      y_c = y[locx[i,1]:locx[i,2]]
-      Z_c = Z[locz[i,1]:locz[i,2],]
+      X_c = X[locx[i, 1]:locx[i, 2], , drop = FALSE]
+      y_c = y[locx[i, 1]:locx[i, 2]]
+      Z_c = Z[locz[i, 1]:locz[i, 2], , drop = FALSE]
 
       mu_c = c(X_c %*% beta)
       gamma_c = c(Z_c %*% alpha)
@@ -124,6 +122,7 @@ contMAEE = function(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink
       SQVARFUN = sqrt(rep(s2, n[i]))
       INVSQVAR = 1/SQVARFUN
       CT = t(C)
+
       omega = C %*% naive %*% CT
       vminomega = B - omega
       psd_vmin = is_pos_def(vminomega)
@@ -131,15 +130,15 @@ contMAEE = function(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink
 
       if(psd_vmin == 1){
         Ci = B %*% ginv(vminomega)
-        RX = (y_c-mu_c)*INVSQVAR
+        RX = (y_c - mu_c) * INVSQVAR
         Gi = tcrossprod(RX)
-       }else{
-        NPSDADJFLAG=1
+       } else {
+        NPSDADJFLAG = 1
         stop("(V - Omega) is not positive definite")
       }
 
       # moment-based estimation of dispersion (total variance)
-      for(j in 1:n[i]){
+      for (j in 1:n[i]) {
         RSS = RSS + s2 * (Ci[j, ] %*% Gi[ ,j])
       }
 
@@ -178,21 +177,21 @@ contMAEE = function(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink
   # Ustar: Approximate information matrix
   #####################################################################################
 
-  SCORE = function(Ustarold, beta, alpha, y, X, Z, n, p,
-                 q, s2,flag, rangeflag, VEEFLAG, NPSDFLAG, NPSDADJFLAG)
-    {
+  SCORE = function(Ustarold, beta, alpha, y, X, Z, n, p, q, s2,flag, rangeflag, 
+                   VEEFLAG, NPSDFLAG, NPSDADJFLAG) {
 
-    U=rep(0,p+q)
-    UUtran=Ustar=matrix(0,p+q,p+q)
-    naiveold=ginv(Ustarold[1:p,1:p]) # needed for Hi1 below
+    U = rep(0, p + q)
+    UUtran = Ustar = matrix(0, p + q, p + q)
+    naiveold = ginv(Ustarold[1:p, 1:p]) # needed for Hi1 below
 
-    locx=BEGINEND(n)
-    locz=BEGINEND(choose(n,2))
+    locx = BEGINEND(n)
+    locz = BEGINEND(choose(n, 2))
 
-    for(i in 1:length(n)){
-      X_c = X[locx[i,1]:locx[i,2], ,drop=FALSE]
+    for (i in 1:length(n)) {
+      
+      X_c = X[locx[i,1]:locx[i,2], ,drop = FALSE]
       y_c = y[locx[i,1]:locx[i,2]]
-      Z_c = Z[locz[i,1]:locz[i,2],]
+      Z_c = Z[locz[i,1]:locz[i,2], , drop = FALSE]
 
       U_c = rep(0, p + q)
       Ustar_c = matrix(0, p + q, p + q)
@@ -200,8 +199,8 @@ contMAEE = function(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink
       gamma_c = c(Z_c %*% alpha)
 
       # calculate VEE
-      VEE = R = rep(0,choose(n[i], 2))
-      DB = matrix(0,choose(n[i], 2), p)
+      VEE = R = rep(0, choose(n[i], 2))
+      DB = matrix(0, choose(n[i], 2), p)
 
       C = X_c
       B = CREATEB(s2, gamma_c, n[i])
@@ -211,7 +210,8 @@ contMAEE = function(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink
       CtinvB = t(C) %*% INVB
       Hi1 = C %*% naiveold %*% CtinvB
 
-      if(alpadj){
+      if (alpadj) {
+
         SQVARFUN = sqrt(rep(s2, n[i]))
         INVSQVAR = 1/SQVARFUN
         CT = t(C)
@@ -219,17 +219,19 @@ contMAEE = function(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink
         vminomega = B - omega
         psd_vmin = is_pos_def(vminomega)
         mineig = min(eigen(vminomega)$values)
-        if(psd_vmin == 1){
+        
+        if (psd_vmin == 1) {
 
           Ci = B %*% ginv(vminomega)
           RX = (y_c - mu_c) * INVSQVAR
           Gi = tcrossprod(RX)
 
-        }else{
+        } else {
           NPSDADJFLAG = 1
           stop("(V - Omega) is not positive definite")
         }
-      }else{
+
+      } else {
         
         SQVARFUN = sqrt(rep(s2, n[i]))
         INVSQVAR = 1/SQVARFUN
@@ -240,12 +242,12 @@ contMAEE = function(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink
 
 
       # RANGE CHECKS
-      l=1
-      for(j in 1:(n[i] - 1)){
-        for(k in (j + 1):n[i]){
-          if((gamma_c[l] >= 1) |
-             (gamma_c[l] <= -1)
-             & (flag==0)){
+      l = 1
+      for (j in 1:(n[i] - 1)) {
+
+        for (k in (j + 1):n[i]) {
+
+          if ((gamma_c[l] >= 1) | (gamma_c[l] <= -1) & (flag == 0) ){
             rangeflag=1
             if(printrange){
               warning(cat("Range Violation Detected for Cluster",i,"and Pair",j, k,"\n"))

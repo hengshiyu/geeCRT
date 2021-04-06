@@ -5,7 +5,7 @@ Hengshi Yu, Fan Li, Paul Rathouz, Elizabeth L. Turner, John Preisser
 
 **Maintainer**: Hengshi Yu (<hengshi@umich.edu>)
 
-geeCRT is a R package for implementing the bias-corrected generalized estimating equations in analyzing cluster randomized trials.
+geeCRT is an R package for implementing the bias-corrected generalized estimating equations in analyzing cluster randomized trials.
 
 Population-averaged models have been increasingly used in the design and analysis of cluster randomized trials (CRTs). To facilitate the applications of population-averaged models in CRTs, we implement the generalized estimating equations (GEE) and matrix-adjusted estimating equations (MAEE) approaches to jointly estimate the marginal mean models correlation models both for general CRTs and stepped wedge CRTs.
 
@@ -75,20 +75,36 @@ We implement the `geemaee()` function on both the continuous outcome and binary 
 
 ### function to create the design matrix for correlation parameters 
 ### under the nested exchangeable correlation structure of SW-CRTs
-CREATEZ_cross_sectional <- function(n, m, t){
-       Z <- NULL
-       for(i in 1:n){
+CREATEZ_cross_sectional <- function(m){
+
+    Z <- NULL
+    n = dim(m)[1]
+    
+    for (i in 1:n) {
+        
         alpha_0 = 1; alpha_1 = 2; n_i = c(m[i, ]); n_length = length(n_i)
         POS = matrix(alpha_1, sum(n_i), sum(n_i))
         loc1 = 0; loc2 = 0
-        for(s in 1:n_length){
-          n_t = n_i[s]; loc1 = loc2 + 1; loc2 = loc1 + n_t - 1
-          for(k in loc1:loc2){for(j in loc1:loc2){if(k != j){POS[k, j] = alpha_0
-            }else{POS[k, j] = 0}}}}
+        
+        for (s in 1:n_length) {
+            
+            n_t = n_i[s]; loc1 = loc2 + 1; loc2 = loc1 + n_t - 1
+            
+            for (k in loc1:loc2) {
+
+                for (j in loc1:loc2) {
+
+                    if (k != j) { POS[k, j] = alpha_0 } else { POS[k, j] = 0 }}}}
+
         zrow <- diag(2); z_c<-NULL
-        for(j in 1:(sum(n_i) - 1)){for(k in (j+1):sum(n_i)){z_c<-rbind(z_c, zrow[POS[j,k],])}}
-        Z <- rbind(Z,z_c)}
-       return(Z)}
+        
+        for (j in 1:(sum(n_i) - 1)) { 
+
+            for (k in (j+1):sum(n_i)) {z_c <- rbind(z_c, zrow[POS[j,k],])}}
+        
+        Z <- rbind(Z, z_c) }
+
+    return(Z)}
 
 ########################################################################
 ### Example 1): simulated SW-CRT with smaller cluster-period sizes (5~10)
@@ -102,7 +118,7 @@ X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'treat
 m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
 clsize <- apply(m, 1, sum)
 ### design matrix for correlation parameters
-Z <- CREATEZ_cross_sectional(n, m, t) 
+Z <- CREATEZ_cross_sectional(m) 
 
 ### (1) Matrix-adjusted estimating equations and GEE 
 ### on continous outcome with nested exchangeable correlation structure
@@ -159,7 +175,7 @@ X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'perio
 m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
 clsize <- apply(m, 1, sum)
 ### design matrix for correlation parameters
-Z <- CREATEZ_cross_sectional(n, m, t) 
+Z <- CREATEZ_cross_sectional(m) 
 
 ### (1) Matrix-adjusted estimating equations and GEE 
 ### on continous outcome with nested exchangeable correlation structure
