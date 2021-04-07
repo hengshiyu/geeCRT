@@ -75,9 +75,9 @@ We implement the `geemaee()` function on both the continuous outcome and binary 
 
 ### function to create the design matrix for correlation parameters 
 ### under the nested exchangeable correlation structure of SW-CRTs
-CREATEZ_cross_sectional <- function(m){
+CREATEZ_cross_sectional = function (m) {
 
-    Z <- NULL
+    Z = NULL
     n = dim(m)[1]
     
     for (i in 1:n) {
@@ -96,13 +96,13 @@ CREATEZ_cross_sectional <- function(m){
 
                     if (k != j) { POS[k, j] = alpha_0 } else { POS[k, j] = 0 }}}}
 
-        zrow <- diag(2); z_c<-NULL
+        zrow = diag(2); z_c = NULL
         
         for (j in 1:(sum(n_i) - 1)) { 
 
-            for (k in (j+1):sum(n_i)) {z_c <- rbind(z_c, zrow[POS[j,k],])}}
+            for (k in (j + 1):sum(n_i)) {z_c = rbind(z_c, zrow[POS[j,k],])}}
         
-        Z <- rbind(Z, z_c) }
+        Z = rbind(Z, z_c) }
 
     return(Z)}
 
