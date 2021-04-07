@@ -1,5 +1,4 @@
-cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpadj)
-{
+cpgee_exc = function (y, X, id, m, family, maxiter, epsilon, printrange, alpadj) {
   #####################################################################################
   # MODULE: BEGINEND
   # creates two vectors that have the start and end points for each cluster
@@ -11,8 +10,7 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # first: vector with starting row for cluster i
   # last: vector with ending row for cluster i
   #####################################################################################
-
-  BEGINEND = function(n){
+  BEGINEND = function(n) {
     last = cumsum(n)
     first = last - n + 1
     return(cbind(first, last))
@@ -24,8 +22,7 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # returns 1 if A is positive definite
   # 0 otherwise
   #####################################################################################
-
-  is_pos_def = function(A){
+  is_pos_def = function (A) {
     return(min(eigen(A)$values) > 1e-13)
   }
 
@@ -35,10 +32,9 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # beta = parameters
   # returns mean and unscaled variace
   #####################################################################################
-
-  mu_v_c_fun = function(X_c, beta){
-      mu_c = 1/(1 + exp(c(- X_c %*% beta)))
-      v_c = mu_c * (1 - mu_c)
+  mu_v_c_fun = function (X_c, beta) {
+    mu_c = 1/(1 + exp(c(- X_c %*% beta)))
+    v_c = mu_c * (1 - mu_c)
     return(list(mu_c = mu_c, v_c = v_c))
   }
 
@@ -56,11 +52,10 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # OUTPUT
   # row of E(d(cov)/dbeta) (ie Q) matrix
   #####################################################################################
+  GETROWB = function (mu, j, k, X, y) {
 
-  GETROWB = function(mu, j, k, X, y){
-
-      row= - (y[j]-mu[j])*X[j,]*mu[j]*(1-mu[j]) -
-        (y[k]-mu[k])*X[k,]*mu[k]*(1-mu[k])
+    row = -(y[j] - mu[j]) * X[j,] * mu[j] * (1 - mu[j]) -
+          (y[k] - mu[k]) * X[k,] * mu[k] * (1 - mu[k])
 
     return(row)
   }
@@ -76,8 +71,7 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # OUTPUT
   # residuals for beta estimating equation
   #####################################################################################
-
-  CREATEA = function(mu, y){
+  CREATEA = function (mu, y) {
     return(y - mu)
   }
 
@@ -92,11 +86,8 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # OUTPUT
   # derivative matrix for beta estimating equation
   #####################################################################################
-
-  CREATEC = function(X, mu){
-
-      D_mat = X*(mu*(1-mu))
-
+  CREATEC = function (X, mu) {
+    D_mat = X * (mu * (1 - mu))
     return(D_mat)
   }
 
@@ -112,12 +103,11 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # OUTPUT
   # covariance matrix for beta estimating equation
   #####################################################################################
-
-  CREATEB = function(gamma, n){
+  CREATEB = function (gamma, n) {
     B = matrix(0, n, n)
     l = 1
-    for(j in 1:n){
-      for(k in j:n){
+    for (j in 1:n) {
+      for (k in j:n) {
         B[j,k] = gamma[l]
         l = l + 1
       }
@@ -142,20 +132,19 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # OUTPUT
   # derivative matrix for alpha estimating equation
   #####################################################################################
-
-  CREATED = function(mu, v, alpha, n, m){
+  CREATED = function (mu, v, alpha, n, m) {
     alpha0 = alpha[1]
     D = NULL
     # fixed scale
-      for(j in 1:(n - 1)){
-        dj = (v[j]/m[j]) * (m[j]-1)
-        D = rbind(D, c(dj))
-        for(k in (j + 1):n){
-          djk0 = sqrt(v[j] * v[k])
-          D = rbind(D, c(djk0))
-        }
+    for (j in 1:(n - 1)) {
+      dj = (v[j]/m[j]) * (m[j]-1)
+      D = rbind(D, c(dj))
+      for (k in (j + 1):n) {
+        djk0 = sqrt(v[j] * v[k])
+        D = rbind(D, c(djk0))
       }
-      D=rbind(D, c((v[n]/m[n]) * (m[n] - 1)))
+    }
+    D = rbind(D, c((v[n]/m[n]) * (m[n] - 1)))
     return(D)
   }
 
@@ -173,15 +162,14 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # OUTPUT
   # vector of estimated covariances
   #####################################################################################
-
-  gammahat = function(mu, v, alpha, n, m){
+  gammahat = function (mu, v, alpha, n, m) {
     alpha0 = alpha[1]   # within-period ICC
     gamma_c = NULL
-    for(j in 1:(n - 1)){
-      sj = (v[j]/m[j]) * (1 + (m[j]-1) * alpha0)
+    for (j in 1:(n - 1)) {
+      sj = (v[j]/m[j]) * (1 + (m[j] - 1) * alpha0)
       gamma_c = c(gamma_c, sj)
-      for(k in (j+1):n){
-        sjk = sqrt(v[j]*v[k]) * alpha0
+      for (k in (j + 1):n) {
+        sjk = sqrt(v[j] * v[k]) * alpha0
         gamma_c = c(gamma_c,  sjk)
       }
     }
@@ -200,16 +188,15 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # OUTPUT
   # A correlation matrix indexed by cluster-periods
   #####################################################################################
-
-  checkalpha = function(alpha, n){
-    alpha0=alpha[1]   # within-period ICC
-    L=matrix(0,n,n)
-    for(j in 1:(n-1)){
+  checkalpha = function (alpha, n) {
+    alpha0 = alpha[1]   # within-period ICC
+    L = matrix(0, n, n)
+    for (j in 1:(n - 1)) {
       L[j,j] = alpha0
-      for(k in (j+1):n){
+      for (k in (j + 1):n) {
         L[j,k] = alpha0}
     }
-    L[n,n] = alpha0
+    L[n, n] = alpha0
     L[lower.tri(L)] = t(L)[lower.tri(L)]
     return(L)
   }
@@ -240,10 +227,9 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # Ustar: approximate information matrix
   #####################################################################################
 
-  SCORE = function(Ustarold, beta, alpha, y, X, m, n, p,
-                 q, NPSDFLAG, NPSDADJFLAG)
-    {
-    U = rep(0,p+q)
+  SCORE = function (Ustarold, beta, alpha, y, X, m, n, p,
+                    q, NPSDFLAG, NPSDADJFLAG) {
+    U = rep(0,p + q)
     UUtran = Ustar = matrix(0, p + q, p + q)
     naiveold = ginv(Ustarold[1:p, 1:p]) # needed for Hi1 below
 
@@ -253,8 +239,8 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
     alpdata0 = NULL
     alpdata1 = NULL
 
-    for(i in 1:length(n)){
-      X_c = X[locx[i,1]:locx[i,2], ,drop=FALSE]
+    for (i in 1:length(n)) {
+      X_c = X[locx[i,1]:locx[i,2], , drop = FALSE]
       y_c = y[locx[i,1]:locx[i,2]]
       m_c = m[locx[i,1]:locx[i,2]]
 
@@ -269,8 +255,8 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
       # correlation matrix elements
       gamma_c = gammahat(mu_c, v_c, alpha, n[i], m_c)
 
-      R = rep(0, choose(n[i]+1, 2))
-      DB = matrix(0, choose(n[i]+1, 2), p)
+      R = rep(0, choose(n[i] + 1, 2))
+      DB = matrix(0, choose(n[i] + 1, 2), p)
 
       C = CREATEC(X_c, mu_c)
       B = CREATEB(gamma_c, n[i])
@@ -282,18 +268,18 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
       Hi1 = C %*% naiveold %*% CtinvB
       G_c = tcrossprod(y_c - mu_c)
 
-      if(alpadj){
+      if (alpadj) {
         CT = t(C)
         omega = C %*% naiveold %*% CT
         vminomega = B - omega
         psd_vmin = is_pos_def(vminomega)
 
-        if(psd_vmin == 1){
+        if (psd_vmin == 1) {
 
           Ci = B %*% ginv(vminomega)
           G_c = Ci %*% G_c
 
-         }else{
+         } else {
 
           NPSDADJFLAG = 1
           stop("(V - Omega) is not positive definite")
@@ -356,7 +342,7 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # Ustar: approximate score vector
   #####################################################################################
 
-  INITBETA = function(y, m, X){
+  INITBETA = function (y, m, X) {
       fit = glm(cbind(m * y, m * (1 - y)) ~ -1 + X, family = binomial(link="logit"))
       beta = as.numeric(fit$coefficients)
       u = as.numeric(fit$fitted.values)
@@ -378,7 +364,7 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # alpha0: correltion parameter
   #####################################################################################
 
-  getalpha0 = function(alpdata0, alpdata1){
+  getalpha0 = function (alpdata0, alpdata1) {
     s0 = alpdata0[,1]
     v = alpdata0[,2]
     m = alpdata0[,3]
@@ -407,7 +393,7 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # alpha: estimated correlation value
   #####################################################################################
 
-  INITALPHA=function(y, X, m, n, beta){
+  INITALPHA = function (y, X, m, n, beta) {
     alpdata0 = NULL
     alpdata1 = NULL
     locx = BEGINEND(n)
@@ -458,7 +444,7 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # ainvc: inverse of matrix A times vector c
   #####################################################################################
 
-  INVBIG = function(ainvc, ainvm, m, c, start, end){
+  INVBIG = function (ainvc, ainvm, m, c, start, end) {
     for(i in start:end){
       b = ainvm[,i]
       bt = t(b)
@@ -498,12 +484,10 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # varKC: bias-corrected variance by Kauermann and Carroll (2001)
   # varFG: bias-corrected variance by Fay and Graubard (2001)
   #####################################################################################
-
   MAKEVAR = function(Ustarold, beta, alpha, y, X, m, n, p, q,
-                      ROBFLAG, NPSDFLAG, NPSDADJFLAG)
-  {
+                      ROBFLAG, NPSDFLAG, NPSDADJFLAG) {
     SCORE_RES = SCORE(Ustarold, beta, alpha, y, X, m, n, p, q,
-                    NPSDFLAG,NPSDADJFLAG)
+                      NPSDFLAG,NPSDADJFLAG)
     U = SCORE_RES$U
     UUtran = SCORE_RES$UUtran
     Ustar = SCORE_RES$Ustar
@@ -511,7 +495,7 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
     NPSDADJFLAG = SCORE_RES$NPSDADJFLAG
 
     naive = ginv(Ustar[1:p,1:p])
-    naivealp = ginv(Ustar[(p+1):(p+q),(p+1):(p+q)])
+    naivealp = ginv(Ustar[(p + 1):(p + q), (p + 1):(p + q)])
 
     # new commands to compute INV(I - H1)
     eigenRES1 = eigen(naive)
@@ -530,14 +514,14 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
     sqe2 = evecs2 %*% diag(sqrevals2, 1)
 
     # Bias-corrected variance
-    Ustar_c_array = UUtran_c_array = array(0,c(p + q,p + q,length(n)))
-    UUtran = UUbc = UUbc2 = UUbc3 = Ustar = inustar = matrix(0,p+q,p+q)
+    Ustar_c_array = UUtran_c_array = array(0, c(p + q,p + q,length(n)))
+    UUtran = UUbc = UUbc2 = UUbc3 = Ustar = inustar = matrix(0, p + q, p + q)
 
     locx = BEGINEND(n)
-    locz = BEGINEND(choose(n+1,2))
+    locz = BEGINEND(choose(n + 1, 2))
 
-    for(i in 1:length(n)){
-      X_c = X[locx[i,1]:locx[i,2],,drop=FALSE]
+    for (i in 1:length(n)) {
+      X_c = X[locx[i, 1]:locx[i, 2], , drop = FALSE]
       y_c = y[locx[i,1]:locx[i,2]]
       m_c = m[locx[i,1]:locx[i,2]]
 
@@ -576,9 +560,9 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
       DB = matrix(0,choose(n[i] + 1, 2), p)
       G_c = tcrossprod(y_c - mu_c)
 
-      if(alpadj){
+      if (alpadj) {
         # MAEE
-        CT=t(C)
+        CT = t(C)
         omega = C %*% naive %*% CT
         vminomega = B - omega
         psd_vmin = is_pos_def(vminomega)
@@ -709,10 +693,8 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   # niter: number of iterations required for convergence
   # converge: did the algorithm converge (0 = no, 1 = yes)
   #####################################################################################
-
-  FITPRENTICE = function(y, X, m, n, maxiter, epsilon, SINGFLAG, ROBFLAG,
-                       NPSDFLAG, NPSDADJFLAG)
-  {
+  FITPRENTICE = function (y, X, m, n, maxiter, epsilon, SINGFLAG, ROBFLAG,
+                          NPSDFLAG, NPSDADJFLAG) {
     p = ncol(X)
     converge = 0
     rangeflag = 0
@@ -722,20 +704,15 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
     beta = INITRES$beta
     Ustar = INITRES$Ustar
 
-
-
     alpha = INITALPHA(y, X, m, n, beta)
     q = length(alpha)
-
-
-
     # tolerances for beta and alpha
     delta = rep(2 * epsilon,p)
     deltaalp = rep(2 * epsilon,q)
 
     # iterative training
     niter = 1
-    while( (niter <= maxiter) & (max(abs(c(delta, deltaalp))) > epsilon)){
+    while ( (niter <= maxiter) & (max(abs(c(delta, deltaalp))) > epsilon)) {
 
       SINGFLAG = 0
       NPSDFLAG = 0
@@ -745,7 +722,7 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
 
       # scores
       SCORE_RES = SCORE(Ustarold, beta, alpha, y, X, m, n, p,
-                      q, NPSDFLAG, NPSDADJFLAG)
+                        q, NPSDFLAG, NPSDADJFLAG)
       U = SCORE_RES$U
       UUtran = SCORE_RES$UUtran
       Ustar = SCORE_RES$Ustar
@@ -775,17 +752,17 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
     Ustarold = Ustar
 
     # inference
-      MAKEVAR_RES=MAKEVAR(Ustarold, beta, alpha, y, X, m, n, p, q,  ROBFLAG,
+    MAKEVAR_RES = MAKEVAR(Ustarold, beta, alpha, y, X, m, n, p, q,  ROBFLAG,
                           NPSDFLAG,NPSDADJFLAG)
-      robust=MAKEVAR_RES$robust
-      naive=MAKEVAR_RES$naive
-      varMD=MAKEVAR_RES$varMD
-      varKC=MAKEVAR_RES$varKC
-      varFG=MAKEVAR_RES$varFG
-      rangeflag=MAKEVAR_RES$rangeflag
-      ROBFLAG=MAKEVAR_RES$ROBFLAG
-      NPSDFLAG=MAKEVAR_RES$NPSDFLAG
-      NPSDADJFLAG=MAKEVAR_RES$NPSDADJFLAG
+    robust = MAKEVAR_RES$robust
+    naive = MAKEVAR_RES$naive
+    varMD = MAKEVAR_RES$varMD
+    varKC = MAKEVAR_RES$varKC
+    varFG = MAKEVAR_RES$varFG
+    rangeflag = MAKEVAR_RES$rangeflag
+    ROBFLAG = MAKEVAR_RES$ROBFLAG
+    NPSDFLAG = MAKEVAR_RES$NPSDFLAG
+    NPSDADJFLAG = MAKEVAR_RES$NPSDADJFLAG
     return(list(beta = beta, alpha = alpha,  robust = robust,
                 naive = naive,varMD = varMD, varKC = varKC,varFG = varFG,
                 niter = niter, converge = converge,
@@ -852,7 +829,7 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   NPSDADJFLAG=0
 
   # Fit the GEE/MAEE algorithm
-
+  n = as.vector(table(id))
 
   PRENTICE_RES = FITPRENTICE(y, X, m, n,  maxiter, epsilon, SINGFLAG, ROBFLAG,
                            NPSDFLAG, NPSDADJFLAG)
@@ -882,7 +859,7 @@ cpgee_exc = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
     outList = list(outbeta = result$outbeta, outalpha = result$outalpha,
                 beta = beta, alpha = alpha, MB=naive, BC0=robust, BC1=varKC, BC2=varMD,
                 BC3=varFG, niter=niter)
-    class(outList) <- 'cpgeeSWD'
+    class(outList) = 'cpgeeSWD'
     return(outList)
   }
 }

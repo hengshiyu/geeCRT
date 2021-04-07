@@ -1,5 +1,4 @@
-cpgee_nex = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpadj)
-{
+cpgee_nex = function (y, X, id, m, family, maxiter, epsilon, printrange, alpadj) {
 
   #####################################################################################
   # MODULE: BEGINEND
@@ -100,7 +99,7 @@ cpgee_nex = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
     l=1
     for(j in 1:n){
       for(k in j:n){
-        B[j,k]<-gamma[l]
+        B[j,k] = gamma[l]
         l=l+1
       }
     }
@@ -188,7 +187,7 @@ cpgee_nex = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
       for(k in (j+1):n){
         L[j,k]=alpha1}
     }
-    L[n,n]<-alpha0
+    L[n,n] = alpha0
     L[lower.tri(L)] = t(L)[lower.tri(L)]
     return(L)
   }
@@ -578,9 +577,9 @@ cpgee_nex = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
             break
           }
 
-          DB[l,]<-GETROWB(mu_c,j,k,X_c,y_c)
+          DB[l,] = GETROWB(mu_c,j,k,X_c,y_c)
 
-          R[l]<-G_c[j,k]-gamma_c[l]
+          R[l] = G_c[j,k]-gamma_c[l]
           l=l+1
         }
       }
@@ -596,7 +595,7 @@ cpgee_nex = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
       ai2R=R
       ai2m2=mm2
       ai2R=INVBIG(ai2R,ai2m2,mm2,R,1,q)
-      U_c[(p+1):(p+q)]<-t(D)%*%ai2R
+      U_c[(p+1):(p+q)] = t(D)%*%ai2R
 
       Ustar_c[1:p,1:p]=t(C)%*%INVB%*%C
       Ustar_c[(p+1):(p+q),1:p]=t(D)%*%DB
@@ -725,7 +724,7 @@ cpgee_nex = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
       } else{
         SINGFLAG=1
       }
-      niter<-niter+1
+      niter = niter+1
 
     }
 
@@ -788,8 +787,8 @@ cpgee_nex = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
 
     outbeta=cbind(beta_numbers,beta,bSE,bSEBC0,bSEBC1,bSEBC2,bSEBC3)
     outalpha=cbind(alpha_numbers,alpha,aSEBC0,aSEBC1,aSEBC2,aSEBC3)
-    colnames(outbeta)<-c("Beta","Estimate","MB-stderr","BC0-stderr","BC1-stderr","BC2-stderr","BC3-stderr")
-    colnames(outalpha)<-c("Alpha","Estimate","BC0-stderr","BC1-stderr","BC2-stderr","BC3-stderr")
+    colnames(outbeta) = c("Beta","Estimate","MB-stderr","BC0-stderr","BC1-stderr","BC2-stderr","BC3-stderr")
+    colnames(outalpha) = c("Alpha","Estimate","BC0-stderr","BC1-stderr","BC2-stderr","BC3-stderr")
 
     return(list(outbeta = outbeta,
                 outalpha = outalpha))
@@ -800,7 +799,8 @@ cpgee_nex = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
   ROBFLAG=0
   NPSDFLAG=0
   NPSDADJFLAG=0
-
+  
+  n = as.vector(table(id))
   # Fit the GEE/MAEE algorithm
   PRENTICE_RES=FITPRENTICE(y, X, m, n, maxiter, epsilon, SINGFLAG, ROBFLAG,
                            NPSDFLAG, NPSDADJFLAG)
@@ -828,7 +828,7 @@ cpgee_nex = function(y, X, id, n, m, family, maxiter, epsilon, printrange, alpad
     outList = list(outbeta = result$outbeta, outalpha = result$outalpha,
                 beta=beta, alpha=alpha, MB=naive, BC0=robust, BC1=varKC, BC2=varMD,
                 BC3=varFG, niter=niter)
-    class(outList) <- 'cpgeeSWD'
+    class(outList) = 'cpgeeSWD'
     return(outList)
   }
 }

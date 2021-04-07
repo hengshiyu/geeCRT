@@ -1,6 +1,6 @@
 ---
 title: "geeCRT package"
-author: "Hengshi Yu, Fan Li, John A. Gallis and  Elizabeth L. Turner"
+author: "Hengshi Yu, Fan Li, Paul Rathouz, Elizabeth L. Turner, John Preisser"
 date: "`r Sys.Date()`"
 bibliography: references.bib
 output: rmarkdown::html_vignette
@@ -13,59 +13,62 @@ vignette: >
 
 library(geeCRT)
 
-
 ```
 
 
 ## Overview
-cvcrand is an R package for the design and analysis of cluster randomized trials (CRTs). 
+geeCRT is an R package for implementing the bias-corrected generalized estimating equations in analyzing cluster randomized trials.
 
-Given the baseline values of some cluster-level covariates, users can perform a constrained randomization on the clusters into two arms, with an optional input of user-defined weights on the covariates. 
+Population-averaged models have been increasingly used in the design and analysis of cluster randomized trials (CRTs). To facilitate the applications of population-averaged models in CRTs, we implement the generalized estimating equations (GEE) and matrix-adjusted estimating equations (MAEE) approaches to jointly estimate the marginal mean models correlation models both for general CRTs and stepped wedge CRTs.
 
-At the end of the study, the individual outcome is collected. The `cvcrand` package also performs clustered permutation test on either continuous outcome or binary outcome adjusted for some individual-level covariates, producing p-value of the intervention effect.
+Despite the general GEE/MAEE approach, we also implement a fast cluster-period GEE method specifically for stepped wedge CRTs with large and variable cluster-period sizes. The individual-level GEE/MAEE approach becomes computationally infeasible in this setting due to inversion of high-dimensional covariance matrices and the enumeration of a high-dimensional design matrix for the correlation estimation equations. The package gives a simple and efficient estimating equations approach based on the cluster-period means to estimate the intervention effects as well as correlation parameters.
 
-
-
-
-## Design: covariate-constrained randomization
-
-In the design of CRTs with two arms, users can use the `cvrall()` function to perform covariate-constrained randomization or `cvrcov()` function to perform covariate-by-covariate constrained randomization. And for the analysis part, user would use the `cptest()` function for clustered permutation test. 
-
-A cluster is the unit of randomization for a cluster randomized trial. Thus, when the number of clusters is small, there might be some baseline imbalance from the randomization between the arms. Constrained randomization constrained the randomization space to randomization schemes with smaller difference among the covariates between the two arms. 
-
-The balance score for constrained randomization in the program is developed from [@raab2001balance]. Suppose $n$, $n_T$, and $n_C$ are the total number of clusters, the number of clusters in the treatment arm and the control arm respectively. Suppose also that there are $K$ cluster-level variables including the continuous covariates as well as the dummy variables created from the categorical covariates. $x_{ik}$ is the $k$th covariate ($k=1,\ldots,K$) of cluster $i$. $\bar{x}_{Tk}=\sum_{i=1}^{n_T}x_{ik}/n_T$ and $\bar{x}_{Ck}=\sum_{i=n_T+1}^{n}x_{ik}/n_C$ are the means of the $k$th cluster-level variable in the treatment arm and the control arm, respectively, and $\omega_{k}$ is a pre-determined weight for the $k$th variable. We choose $\omega_{k}$ to be the inverse of the variance of the $k$th variable across all clusters following [@raab2001balance] and [@li2016evaluation], namely $\omega_k={1}/{s_k^2}=\frac{n-1}{\sum_{i=1}^n(x_{ik}-\bar{x}_k)^2}$ with $\bar{x}_k=\sum_{i=1}^nx_{ik}/n$. 
-
-There are two choices of metric for the balance score. The balance score of the `"l2"` metric is defined as $B_{(l2)}=\sum_{k=1}^{K}\omega_k(\bar{x}_{Tk}-\bar{x}_{Ck})^2$. And if `"l1"` metric from [@li2017evaluation] is specified, the balance score is defined as $B_{(l1)}=\sum_{k=1}^{K}\tilde{\omega}_k\left|\bar{x}_{Tk}-\bar{x}_{Ck}\right|$, where $\tilde{\omega}_k$ is chosen to be the inverse of the standard deviation of the $k$th variable $s_k$. 
-
-To reflect the relative importance of different baseline covariates, one may include user-defined weights in the `"l1"` and `"l2"` balance metrics. The `"l2"` balance metric is set to be $B_{(l2)}=\sum_{k=1}^{K}d_k\omega_k(\bar{x}_{Tk}-\bar{x}_{Ck})^2$, where $d_k$ is the user-defined weight for the $k$th variable. By default, $d_k=1$ for all variables. A large user-defined weight $d_k>1$ could be assigned to a variable of importance when assessing the balance scores. Similarly, we modify the $l1$ balance metric by allowing for user-defined weight as $B_{(l1)}=\sum_{k=1}^{K}d_k\tilde{\omega}_k\left|\bar{x}_{Tk}-\bar{x}_{Ck}\right|$. 
-
-With the baseline values of the specified cluster-level covariates in a cluster randomized trail, the `cvrall()` function in the `cvcrand` package is used to perform the covariate-constrained randomization. 
-
-Each categorical variable is transformed into dummy variables to calculate the balance score. When transforming a categorical variable to dummy variables, the reference level will be dropped if the categorical variable is specified as a factor. Otherwise, the first level in the alphanumerical order will be dropped. Users can also specify a certain reference level for each categorical variable by manually coding dummy variables before running the `cvrall()` function. In addition to constraining the randomization space via a scalar summary score, we developed the `cvrcov()` function to implement constrained randomization with baseline balance defined directly through each covariate.
-
-We followed the routine developed by [@greene2017sas] to give covariate-by-covariate constraints based on arm mean difference or arm total difference. For each covariate to be considered for constrained randomization, a specific constraint is to be specified by users. The constraint of `"any"` means no constraints. If not `"any"`, the first character letter of `"m"` denotes absolute mean difference, and `"s"` means absolute sum difference. If the second character is `"f"`, the previous metric is constrained to be smaller or equal to the fraction with the number followed of the overall mean for `"m"` or mean arm total for `"s"`. If not `"f"` at the second character, the metric is just constrained to be smaller or equal to the value followed.
-
-To check the randomization validity ([@bailey1987valid]), the argument of `check_validity` in both `cvrall()` and `cvrcov()` functions could be specified to be `TRUE`. Then the functions would provide summary statistics on cluster pairs that always or never appear together in the same arm, which might imply the validity of randomization. 
+In addition, the package also provides functions for generating correlated binary data with specific mean vector and correlation matrix based on the multivariate probit method [@emrich1991method] or the conditional linear family method ([@qaqish2003family]). These two functions facilitate generating correlated binary data in future simulation studies. 
 
 
-## `cvrall()` example for covariate-constrained randomization
-
-A study presented by [@dickinson2015pragmatic] is about two approaches (interventions) for increasing the "up-to-date" immunization rate in 19- to 35-month-old children. They planned to randomize 16 counties in Colorado 1:1 to either a population-based approach or a practice-based approach. There are several county-level variables. The program will randomize on a subset of these variables. The continuous variable of average income is categorized to illustrate the use of the `cvrall()` on multi-category variables. The percentage in Colorado Immunization Information System (CIIS) variable is trancated at 100%.
 
 
-```{r, echo=FALSE, results='asis'}
-knitr::kable(Dickinson_design[ , 1:6])
-```
+## `geemaee()` example: matrix-adjusted GEE for estimating the mean and correlation parameters in CRTs
 
-```{r, echo=FALSE, results='asis'}
-knitr::kable(Dickinson_design[ , 7:11])
-```
+The `geemaee()` function implements the matrix-adjusted GEE or regular GEE developed for analyzing cluster randomized trials (CRTs). It provides valid estimation and inference for the treatment effect and intraclass correlation parameters within the population-averaged modeling framework. The program allows for flexible marginal mean model specifications. The program also offers bias-corrected intraclass correlation coefficient (ICC) estimates as well as bias-corrected sandwich variances for both the treatment effect parameter and the ICC parameters. The technical details of the matrix-adjusted GEE approach are provided in Preisser et al. (2008) and Li et al. (2018).
 
+For the individual-level data, we use the `geemaee()` function to estimate the marginal mean and correlation parameters in CRTs. We use two simulated stepped wedge CRT datasets with true nested exchangeable correlation structure to illustrate the `geemaee()` function examples. We first create an auxiliary function `createzCrossSec()` to help create the design matrix for the estimating equations of the correlation parameters. We then collect design matrix `X` for the mean parameters with five period indicators and the treatment indicator.
 
-For the covariate-constrained randomization, we used the `cvrall()` function to randomize 8 out of the 16 counties into the practice-based. For the definition of the whole randomization space, if the total number of all possible schemes is smaller than `50,000`, we enumerate all the schemes as the whole randomization space. Otherwise, we simulate `50,000` schemes and choose the unique shemes among them as the whole randomization space. We calculate the balance scores of `"l2"` metric on three continuous covariates as well as two categorical covariates of location and income category. Location has `"Rural"` and `"Urban"`. The level of `"Rural"` was then dropped in `cvrall()`. As income category has three levels of `"low"`, `"med"`, and `"high"`,  the level of `"high"` was dropped to create dummy variables according to the alphanumerical order as well. Then we constrained the randomization space to the schemes with `"l2"` balance scores less than the `0.1` quantile of that in the whole randomization space. Finally, a randomization scheme is sampled from the constrained space. 
+```{r createz, fig.keep="all", fig.width = 7, fig.height=4}
 
-We saved the constrained randomization space in a CSV file in `"dickinson_constrained.csv"`, the first column of which is an indicator variable of the finally selected scheme (`1`) or not (`0`). We also saved the balance scores of the whole randomization space in a CSV file in `"dickinson_bscores.csv"`, and output a histogram displaying the distribution of all balance scores with a red line indicating our selected cutoff (the `0.1` quantile).  
+createzCrossSec = function (m) {
 
+    Z = NULL
+    n = dim(m)[1]
+    
+    for (i in 1:n) {
+        
+        alpha_0 = 1; alpha_1 = 2; n_i = c(m[i, ]); n_length = length(n_i)
+        POS = matrix(alpha_1, sum(n_i), sum(n_i))
+        loc1 = 0; loc2 = 0
+        
+        for (s in 1:n_length) {
+            
+            n_t = n_i[s]; loc1 = loc2 + 1; loc2 = loc1 + n_t - 1
+            
+            for (k in loc1:loc2) {
+
+                for (j in loc1:loc2) {
+
+                    if (k != j) { POS[k, j] = alpha_0 } else { POS[k, j] = 0 }}}}
+
+        zrow = diag(2); z_c = NULL
+        
+        for (j in 1:(sum(n_i) - 1)) { 
+
+            for (k in (j + 1):sum(n_i)) {z_c = rbind(z_c, zrow[POS[j,k],])}}
+        
+        Z = rbind(Z, z_c) }
+
+    return(Z)}
+``` 
+
+We implement the `geemaee()` function on both the continuous outcome and binary outcome, and consider both matrix-adjusted estimating equations (MAEE) with `alpadj = TRUE` and uncorrected generalized estimating equations (GEE) with `alpadj = FALSE`. For the `shrink` argument, we use the `"ALPHA"` method to tune step sizes and focus on using estimated variances in the correlation estimating equations rather than using unit variances by specifying `makevone = FALSE`. 
 
 
 ```{r cvrall, fig.keep="all", fig.width = 7, fig.height=4}

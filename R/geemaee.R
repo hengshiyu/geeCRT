@@ -53,7 +53,7 @@
 #' ### function to create the design matrix for correlation parameters
 #' ### under the nested exchangeable correlation structure
 #' #################################################################
-#' CREATEZ_cross_sectional = function (m) {
+#' createzCrossSec = function (m) {
 #'       Z = NULL
 #'       n = dim(m)[1]
 #'       for (i in 1:n) {
@@ -68,7 +68,7 @@
 #'            zrow = diag(2); z_c = NULL
 #'            for (j in 1:(sum(n_i) - 1)) {
 #'                for (k in (j + 1):sum(n_i)) {z_c = rbind(z_c, zrow[POS[j,k],])}}
-#'            Z = rbind(Z,z_c)}
+#'            Z = rbind(Z, z_c)}
 #'       return(Z)}
 #'
 #' ########################################################################
@@ -84,10 +84,10 @@
 #' id = sampleSWCRT$id; period =  sampleSWCRT$period;
 #' X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'treatment')])
 #'
-#' m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]; clsize = apply(m, 1, sum)
+#' m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]; 
 #'
 #' ### design matrix for correlation parameters
-#' Z = CREATEZ_cross_sectional(m)
+#' Z = createzCrossSec(m)
 #'
 #' ################################################################
 #' ### (1) Matrix-adjusted estimating equations and GEE
@@ -96,7 +96,7 @@
 #'
 #' ### MAEE
 #' est_maee_ind_con = geemaee(y = sampleSWCRT$y_con, X = X, id = id,
-#'                            n = clsize, Z = Z, family = "continuous",
+#'                            Z = Z, family = "continuous",
 #'                            maxiter = 500, epsilon = 0.001,
 #'                            printrange = TRUE, alpadj = TRUE,
 #'                            shrink = "ALPHA", makevone = FALSE)
@@ -105,7 +105,7 @@
 #' 
 #' ### GEE
 #' est_uee_ind_con = geemaee(y = sampleSWCRT$y_con, X = X, id = id,
-#'                           n = clsize, Z = Z, family = "continuous",
+#'                           Z = Z, family = "continuous",
 #'                           maxiter = 500, epsilon = 0.001,
 #'                           printrange = TRUE, alpadj = FALSE,
 #'                           shrink = "ALPHA", makevone = FALSE)
@@ -119,7 +119,7 @@
 #'
 #' ### MAEE
 #' est_maee_ind_bin = geemaee(y = sampleSWCRT$y_bin, X = X, id = id,
-#'                            n = clsize, Z = Z, family = "binomial",
+#'                            Z = Z, family = "binomial",
 #'                            maxiter = 500, epsilon = 0.001,
 #'                            printrange = TRUE, alpadj = TRUE,
 #'                            shrink = "ALPHA", makevone = FALSE)
@@ -128,7 +128,7 @@
 #' 
 #' ### GEE
 #' est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin, X = X, id = id,
-#'                           n = clsize, Z = Z, family = "binomial",
+#'                           Z = Z, family = "binomial",
 #'                           maxiter = 500, epsilon = 0.001,
 #'                           printrange = TRUE, alpadj = FALSE,
 #'                           shrink = "ALPHA", makevone = FALSE)
@@ -150,10 +150,10 @@
 #' id = sampleSWCRT$id; period =  sampleSWCRT$period;
 #' X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'period5', 'treatment')])
 #'
-#' m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]; clsize <- apply(m, 1, sum)
+#' m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]; 
 #'
 #' ### design matrix for correlation parameters
-#' Z <- CREATEZ_cross_sectional(m)
+#' Z = createzCrossSec(m)
 #'
 #' ################################################################
 #' ### (1) Matrix-adjusted estimating equations and GEE
@@ -162,7 +162,7 @@
 #'
 #' ### MAEE
 #' est_maee_ind_con = geemaee(y = sampleSWCRT$y_con, X = X, id = id,
-#'                            n = clsize, Z = Z, family = "continuous",
+#'                            Z = Z, family = "continuous",
 #'                            maxiter = 500, epsilon = 0.001,
 #'                            printrange = TRUE, alpadj = TRUE,
 #'                            shrink = "ALPHA", makevone = FALSE)
@@ -171,7 +171,7 @@
 #' 
 #' ### GEE
 #' est_uee_ind_con = geemaee(y = sampleSWCRT$y_con, X = X, id = id,
-#'                           n = clsize, Z = Z, family = "continuous",
+#'                           Z = Z, family = "continuous",
 #'                           maxiter = 500, epsilon = 0.001,
 #'                           printrange = TRUE, alpadj = FALSE,
 #'                           shrink = "ALPHA", makevone = FALSE)
@@ -184,7 +184,7 @@
 #'
 #' ### MAEE
 #' est_maee_ind_bin = geemaee(y = sampleSWCRT$y_bin, X = X, id = id,
-#'                            n = clsize, Z = Z, family = "binomial",
+#'                            Z = Z, family = "binomial",
 #'                            maxiter = 500, epsilon = 0.001,
 #'                            printrange = TRUE, alpadj = TRUE,
 #'                            shrink = "ALPHA", makevone = FALSE)
@@ -193,7 +193,7 @@
 #' 
 #' ### GEE
 #' est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin, X = X, id = id,
-#'                           n = clsize, Z = Z, family = "binomial",
+#'                           Z = Z, family = "binomial",
 #'                           maxiter = 500, epsilon = 0.001,
 #'                           printrange = TRUE, alpadj = FALSE,
 #'                           shrink = "ALPHA", makevone = FALSE)
@@ -234,11 +234,11 @@ geemaee = function(y, X, id, Z, family, maxiter = 500, epsilon = 0.001, printran
   
   if (family == "continuous") {
     
-    contMAEE(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink, makevone)
+    contMAEE(y, X, id, Z, maxiter, epsilon, printrange, alpadj, shrink, makevone)
   
   } else if (family == "binomial") {
     
-    binMAEE(y, X, id, n, Z, maxiter, epsilon, printrange, alpadj, shrink, makevone)
+    binMAEE(y, X, id, Z, maxiter, epsilon, printrange, alpadj, shrink, makevone)
   
   }
 }

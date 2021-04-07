@@ -66,7 +66,7 @@ install.packages('geeCRT')
 
 The `geemaee()` function implements the matrix-adjusted GEE or regular GEE developed for analyzing cluster randomized trials (CRTs). It provides valid estimation and inference for the treatment effect and intraclass correlation parameters within the population-averaged modeling framework. The program allows for flexible marginal mean model specifications. The program also offers bias-corrected intraclass correlation coefficient (ICC) estimates as well as bias-corrected sandwich variances for both the treatment effect parameter and the ICC parameters. The technical details of the matrix-adjusted GEE approach are provided in Preisser et al. (2008) and Li et al. (2018).
 
-For the individual-level data, we use the `geemaee()` function to estimate the marginal mean and correlation parameters in CRTs. We use two simulated stepped wedge CRT datasets with true nested exchangeable correlation structure to illustrate the `geemaee()` function examples. We first create an auxiliary function `CREATEZ_cross_sectional()` to help create the design matrix for the estimating equations of the correlation parameters. We then collect design matrix `X` for the mean parameters with five period indicators and the treatment indicator. The vector of cluster sample size `clsize` is inferred from the cluster id and period order number. 
+For the individual-level data, we use the `geemaee()` function to estimate the marginal mean and correlation parameters in CRTs. We use two simulated stepped wedge CRT datasets with true nested exchangeable correlation structure to illustrate the `geemaee()` function examples. We first create an auxiliary function `createzCrossSec()` to help create the design matrix for the estimating equations of the correlation parameters. We then collect design matrix `X` for the mean parameters with five period indicators and the treatment indicator. 
 
 We implement the `geemaee()` function on both the continuous outcome and binary outcome, and consider both matrix-adjusted estimating equations (MAEE) with `alpadj = TRUE` and uncorrected generalized estimating equations (GEE) with `alpadj = FALSE`. For the `shrink` argument, we use the `"ALPHA"` method to tune step sizes and focus on using estimated variances in the correlation estimating equations rather than using unit variances by specifying `makevone = FALSE`. 
 
@@ -75,7 +75,7 @@ We implement the `geemaee()` function on both the continuous outcome and binary 
 
 ### function to create the design matrix for correlation parameters 
 ### under the nested exchangeable correlation structure of SW-CRTs
-CREATEZ_cross_sectional = function (m) {
+createzCrossSec = function (m) {
 
     Z = NULL
     n = dim(m)[1]
@@ -116,16 +116,16 @@ sampleSWCRT = sampleSWCRTSmall
 id = sampleSWCRT$id; period =  sampleSWCRT$period;
 X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'treatment')])
 m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
-clsize <- apply(m, 1, sum)
+
 ### design matrix for correlation parameters
-Z <- CREATEZ_cross_sectional(m) 
+Z = createzCrossSec(m) 
 
 ### (1) Matrix-adjusted estimating equations and GEE 
 ### on continous outcome with nested exchangeable correlation structure
  
 ### MAEE
 est_maee_ind_con = geemaee(y = sampleSWCRT$y_con, 
-                           X = X, id  = id, n = clsize, Z = Z, 
+                           X = X, id  = id, Z = Z, 
                            family = "continuous", 
                            maxiter = 500, epsilon = 0.001, 
                            printrange = TRUE, alpadj = TRUE, 
@@ -134,7 +134,7 @@ print(est_maee_ind_con)
 
 ### GEE
 est_uee_ind_con = geemaee(y = sampleSWCRT$y_con, 
-                          X = X, id = id, n = clsize, Z = Z, 
+                          X = X, id = id, Z = Z, 
                           family = "continuous", 
                           maxiter = 500, epsilon = 0.001, 
                           printrange = TRUE, alpadj = FALSE, 
@@ -146,7 +146,7 @@ print(est_uee_ind_con)
 
 ### MAEE
 est_maee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
-                           X = X, id = id, n = clsize, Z = Z, 
+                           X = X, id = id, Z = Z, 
                            family = "binomial", 
                            maxiter = 500, epsilon = 0.001, 
                            printrange = TRUE, alpadj = TRUE, 
@@ -154,12 +154,12 @@ est_maee_ind_bin = geemaee(y = sampleSWCRT$y_bin,
 print(est_maee_ind_bin)
 
 ### GEE
- est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
-                           X = X, id = id, n = clsize, Z = Z, 
-                           family = "binomial", 
-                           maxiter = 500, epsilon = 0.001, 
-                           printrange = TRUE, alpadj = FALSE, 
-                           shrink = "ALPHA", makevone = FALSE)
+est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                          X = X, id = id, Z = Z, 
+                          family = "binomial", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
 print(est_uee_ind_bin)
 
 
@@ -173,16 +173,15 @@ sampleSWCRT = sampleSWCRTLarge
 id = sampleSWCRT$id; period =  sampleSWCRT$period;
 X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'period5', 'treatment')])
 m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
-clsize <- apply(m, 1, sum)
 ### design matrix for correlation parameters
-Z <- CREATEZ_cross_sectional(m) 
+Z = createzCrossSec(m) 
 
 ### (1) Matrix-adjusted estimating equations and GEE 
 ### on continous outcome with nested exchangeable correlation structure
  
 ### MAEE
 est_maee_ind_con = geemaee(y = sampleSWCRT$y_con, 
-                           X = X, id  = id, n = clsize, Z = Z, 
+                           X = X, id  = id, Z = Z, 
                            family = "continuous", 
                            maxiter = 500, epsilon = 0.001, 
                            printrange = TRUE, alpadj = TRUE, 
@@ -191,7 +190,7 @@ print(est_maee_ind_con)
 
 ### GEE
 est_uee_ind_con = geemaee(y = sampleSWCRT$y_con, 
-                          X = X, id = id, n = clsize, Z = Z, 
+                          X = X, id = id, Z = Z, 
                           family = "continuous", 
                           maxiter = 500, epsilon = 0.001, 
                           printrange = TRUE, alpadj = FALSE, 
@@ -203,7 +202,7 @@ print(est_uee_ind_con)
 
 ### MAEE
 est_maee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
-                           X = X, id = id, n = clsize, Z = Z, 
+                           X = X, id = id, Z = Z, 
                            family = "binomial", 
                            maxiter = 500, epsilon = 0.001, 
                            printrange = TRUE, alpadj = TRUE, 
@@ -212,7 +211,7 @@ print(est_maee_ind_bin)
 
 ### GEE
  est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
-                           X = X, id = id, n = clsize, Z = Z, 
+                           X = X, id = id, Z = Z, 
                            family = "binomial", 
                            maxiter = 500, epsilon = 0.001, 
                            printrange = TRUE, alpadj = FALSE, 
@@ -246,38 +245,38 @@ id = sampleSWCRT$id; period =  sampleSWCRT$period; y =  sampleSWCRT$y_bin
 X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'treatment')])
  
 m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
-clp_mu<-tapply(y,list(id,period), FUN=mean)
-y_cp <- c(t(clp_mu))
+clp_mu = tapply(y,list(id,period), FUN=mean)
+y_cp = c(t(clp_mu))
  
 ### design matrix for correlation parameters
-trt <- tapply(X[, t + 1], list(id, period), FUN=mean)
-trt <- c(t(trt))
+trt = tapply(X[, t + 1], list(id, period), FUN=mean)
+trt = c(t(trt))
 
-time <- tapply(period,list(id, period), FUN = mean); time <- c(t(time))
-X_cp <- matrix(0, n * t, t)
+time = tapply(period,list(id, period), FUN = mean); time = c(t(time))
+X_cp = matrix(0, n * t, t)
 
 s = 1
-for(i in 1:n){for(j in 1:t){X_cp[s, time[s]] <- 1; s = s + 1}}
-X_cp <- cbind(X_cp, trt); id_cp <- rep(1:n, each= t); n_cp <- rep(t, n); m_cp <-  c(t(m))
+for (i in 1:n) { for (j in 1:t) { X_cp[s, time[s]] = 1; s = s + 1 }}
+X_cp = cbind(X_cp, trt); id_cp = rep(1:n, each= t); m_cp =  c(t(m))
 
 ### cluster-period matrix-adjusted estimating equations (MAEE) 
 ### with exchangeable, nested exchangeable and exponential decay correlation structures 
 # exponential
-est_maee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
-                         n = n_cp, m = m_cp, 
-                         corstr = "exchangeable", alpadj = TRUE)
+est_maee_exc = cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
+                        m = m_cp, corstr = "exchangeable", 
+                        alpadj = TRUE)
 print(est_maee_exc)
 
 # nested exchangeable
-est_maee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
-                         n = n_cp, m = m_cp, 
-                         corstr = "nest_exch", alpadj = TRUE)
+est_maee_nex = cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
+                        m = m_cp, corstr = "nest_exch", 
+                        alpadj = TRUE)
 print(est_maee_nex)
 
 # exponential decay 
-est_maee_ed <- cpgeeSWD(y  = y_cp, X = X_cp, id = id_cp, 
-                        n = n_cp, m = m_cp, 
-                        corstr = "exp_decay", alpadj = TRUE)
+est_maee_ed = cpgeeSWD(y  = y_cp, X = X_cp, id = id_cp, 
+                       m = m_cp, corstr = "exp_decay", 
+                       alpadj = TRUE)
 print(est_maee_ed)
  
 
@@ -286,20 +285,20 @@ print(est_maee_ed)
 
 # exchangeable
 est_uee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
-                        n = n_cp, m = m_cp, 
-                        corstr = "exchangeable",alpadj = FALSE)
+                        m = m_cp, corstr = "exchangeable",
+                        alpadj = FALSE)
 print(est_uee_exc)
 
 # nested exchangeable
 est_uee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
-                        n = n_cp, m = m_cp, 
-                        corstr = "nest_exch", alpadj = FALSE)
+                        m = m_cp, corstr = "nest_exch", 
+                        alpadj = FALSE)
 print(est_uee_nex)
 
 # exponential decay 
 est_uee_ed <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
-                       n = n_cp, m = m_cp, 
-                       corstr = 'exp_decay', alpadj = FALSE)
+                       m = m_cp, corstr = 'exp_decay', 
+                       alpadj = FALSE)
 print(est_uee_ed)
 
 ########################################################################
@@ -326,26 +325,26 @@ X_cp <- matrix(0, n * t, t)
 
 s = 1
 for(i in 1:n){for(j in 1:t){X_cp[s, time[s]] <- 1; s = s + 1}}
-X_cp <- cbind(X_cp, trt); id_cp <- rep(1:n, each= t); n_cp <- rep(t, n); m_cp <-  c(t(m))
+X_cp <- cbind(X_cp, trt); id_cp <- rep(1:n, each= t); m_cp <-  c(t(m))
 
 ### cluster-period matrix-adjusted estimating equations (MAEE) 
 ### with exchangeable, nested exchangeable and exponential decay correlation structures 
 # exponential
 est_maee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
-                         n = n_cp, m = m_cp, 
-                         corstr = "exchangeable", alpadj = TRUE)
+                         m = m_cp, corstr = "exchangeable", 
+                         alpadj = TRUE)
 print(est_maee_exc)
 
 # nested exchangeable
 est_maee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
-                         n = n_cp, m = m_cp, 
-                         corstr = "nest_exch", alpadj = TRUE)
+                         m = m_cp, corstr = "nest_exch", 
+                         alpadj = TRUE)
 print(est_maee_nex)
 
 # exponential decay 
 est_maee_ed <- cpgeeSWD(y  = y_cp, X = X_cp, id = id_cp, 
-                        n = n_cp, m = m_cp, 
-                        corstr = "exp_decay", alpadj = TRUE)
+                        m = m_cp, corstr = "exp_decay", 
+                        alpadj = TRUE)
 print(est_maee_ed)
  
 
@@ -354,20 +353,20 @@ print(est_maee_ed)
 
 # exchangeable
 est_uee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
-                        n = n_cp, m = m_cp, 
-                        corstr = "exchangeable",alpadj = FALSE)
+                        m = m_cp, corstr = "exchangeable",
+                        alpadj = FALSE)
 print(est_uee_exc)
 
 # nested exchangeable
 est_uee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
-                        n = n_cp, m = m_cp, 
-                        corstr = "nest_exch", alpadj = FALSE)
+                        m = m_cp, corstr = "nest_exch", 
+                        alpadj = FALSE)
 print(est_uee_nex)
 
 # exponential decay 
 est_uee_ed <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
-                       n = n_cp, m = m_cp, 
-                       corstr = 'exp_decay', alpadj = FALSE)
+                       m = m_cp, corstr = 'exp_decay', 
+                       alpadj = FALSE)
 print(est_uee_ed)
 
 ```

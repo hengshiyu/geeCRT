@@ -160,7 +160,7 @@ binMAEE = function (y, X, id, Z, maxiter, epsilon, printrange, alpadj, shrink, m
       U_c = rep(0, p + q)
       Ustar_c = matrix(0, p + q, p + q)
       mu_c = 1/(1 + exp(c(- X_c %*% beta)))
-      gamma_c = c(Z_c%*%alpha)
+      gamma_c = c(Z_c %*% alpha)
 
       VEE = R = rep(0, choose(n[i], 2))
       DB = matrix(0, choose(n[i],2), p)
