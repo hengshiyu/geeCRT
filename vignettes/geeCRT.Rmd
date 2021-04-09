@@ -25,9 +25,6 @@ Despite the general GEE/MAEE approach, we also implement a fast cluster-period G
 
 In addition, the package also provides functions for generating correlated binary data with specific mean vector and correlation matrix based on the multivariate probit method [@emrich1991method] or the conditional linear family method ([@qaqish2003family]). These two functions facilitate generating correlated binary data in future simulation studies. 
 
-
-
-
 ## `geemaee()` example: matrix-adjusted GEE for estimating the mean and correlation parameters in CRTs
 
 The `geemaee()` function implements the matrix-adjusted GEE or regular GEE developed for analyzing cluster randomized trials (CRTs). It provides valid estimation and inference for the treatment effect and intraclass correlation parameters within the population-averaged modeling framework. The program allows for flexible marginal mean model specifications. The program also offers bias-corrected intraclass correlation coefficient (ICC) estimates as well as bias-corrected sandwich variances for both the treatment effect parameter and the ICC parameters. The technical details of the matrix-adjusted GEE approach are provided in Preisser et al. (2008) and Li et al. (2018).
