@@ -27,9 +27,17 @@ In addition, the package also provides functions for generating correlated binar
 
 ## `geemaee()` example: matrix-adjusted GEE for estimating the mean and correlation parameters in CRTs
 
-The `geemaee()` function implements the matrix-adjusted GEE or regular GEE developed for analyzing cluster randomized trials (CRTs). It provides valid estimation and inference for the treatment effect and intraclass correlation parameters within the population-averaged modeling framework. The program allows for flexible marginal mean model specifications. The program also offers bias-corrected intraclass correlation coefficient (ICC) estimates as well as bias-corrected sandwich variances for both the treatment effect parameter and the ICC parameters. The technical details of the matrix-adjusted GEE approach are provided in Preisser et al. (2008) and Li et al. (2018).
+The `geemaee()` function implements the matrix-adjusted GEE or regular GEE developed for analyzing cluster randomized trials (CRTs). It provides valid estimation and inference for the treatment effect and intraclass correlation parameters within the population-averaged modeling framework. The program allows for flexible marginal mean model specifications. The program also offers bias-corrected intraclass correlation coefficient (ICC) estimates as well as bias-corrected sandwich variances for both the treatment effect parameter and the ICC parameters. The technical details of the matrix-adjusted GEE approach are provided in [@preisser2008finite] and [@li2018sample].
 
-For the individual-level data, we use the `geemaee()` function to estimate the marginal mean and correlation parameters in CRTs. We use two simulated stepped wedge CRT datasets with true nested exchangeable correlation structure to illustrate the `geemaee()` function examples. We first create an auxiliary function `createzCrossSec()` to help create the design matrix for the estimating equations of the correlation parameters. We then collect design matrix `X` for the mean parameters with five period indicators and the treatment indicator.
+For the individual-level data, we use the `geemaee()` function to estimate the marginal mean and correlation parameters in CRTs. We use two simulated stepped wedge CRT datasets with true nested exchangeable correlation structure to illustrate the `geemaee()` function examples. 
+
+### Simulated dataset with 12 clusters and 4 periods.
+
+```{r, echo=FALSE, results='asis'}
+knitr::kable(head(sampleSWCRTSmall))
+```
+
+We first create an auxiliary function `createzCrossSec()` to help create the design matrix for the estimating equations of the correlation parameters. We then collect design matrix `X` for the mean parameters with five period indicators and the treatment indicator.
 
 ```{r createz, fig.keep="all", fig.width = 7, fig.height=4}
 
@@ -68,235 +76,454 @@ createzCrossSec = function (m) {
 We implement the `geemaee()` function on both the continuous outcome and binary outcome, and consider both matrix-adjusted estimating equations (MAEE) with `alpadj = TRUE` and uncorrected generalized estimating equations (GEE) with `alpadj = FALSE`. For the `shrink` argument, we use the `"ALPHA"` method to tune step sizes and focus on using estimated variances in the correlation estimating equations rather than using unit variances by specifying `makevone = FALSE`. 
 
 
-```{r cvrall, fig.keep="all", fig.width = 7, fig.height=4}
+```{r geemaee_small, fig.keep="all", fig.width = 7, fig.height=4}
 
- Design_result <- cvrall(clustername = Dickinson_design$county,
-                  balancemetric = "l2",
-                  x = data.frame(Dickinson_design[ , c("location", "inciis",
-                      "uptodateonimmunizations", "hispanic", "incomecat")]),
-                  ntotal_cluster = 16,
-                  ntrt_cluster = 8,
-                  categorical = c("location", "incomecat"),
-                  ###### Option to save the constrained space #####
-                  # savedata = "dickinson_constrained.csv",
-                  bhist = TRUE,
-                  cutoff = 0.1,
-                  seed = 12345)
+sampleSWCRT = sampleSWCRTSmall
+
+### Individual-level id, period, outcome, and design matrix
+id = sampleSWCRT$id; period = sampleSWCRT$period;
+X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'treatment')])
+m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
+
+### design matrix for correlation parameters
+Z = createzCrossSec(m) 
+
+### (1) Matrix-adjusted estimating equations and GEE 
+### on continous outcome with nested exchangeable correlation structure
  
+### MAEE
+est_maee_ind_con = geemaee(y = sampleSWCRT$y_con, 
+                           X = X, id  = id, Z = Z, 
+                           family = "continuous", 
+                           maxiter = 500, epsilon = 0.001, 
+                           printrange = TRUE, alpadj = TRUE, 
+                           shrink = "ALPHA", makevone = FALSE)
 
-```
+### GEE
+est_uee_ind_con = geemaee(y = sampleSWCRT$y_con, 
+                          X = X, id = id, Z = Z, 
+                          family = "continuous", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
+
+### (2) Matrix-adjusted estimating equations and GEE 
+### on binary outcome with nested exchangeable correlation structure
+
+### MAEE
+est_maee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                           X = X, id = id, Z = Z, 
+                           family = "binomial", 
+                           maxiter = 500, epsilon = 0.001, 
+                           printrange = TRUE, alpadj = TRUE, 
+                           shrink = "ALPHA", makevone = FALSE)
+print(est_maee_ind_bin)
+
+### GEE
+est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                          X = X, id = id, Z = Z, 
+                          family = "binomial", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
+
+ ```
 
 
-The we had the following output: 
+Then we have the following output: 
 ```{r set-options1, echo=FALSE, fig.keep="all", fig.width = 7, fig.height=4}
 options(width = 100)
  
 ```
 
 ```{r , fig.keep="all", fig.width = 7, fig.height=4}
- # the balance metric used
- Design_result$balancemetric
+ # MAEE for continuous outcome
+ print(est_maee_ind_con)
 
- # the allocation scheme from constrained randomization
- Design_result$allocation
+ # GEE for continuous outcome
+ print(est_uee_ind_con)
  
- # the histogram of the balance score with respect to the balance metric
- Design_result$bscores
+ # MAEE for binary outcome
+ print(est_maee_ind_bin)
  
- # the statement about how many clusters to be randomized to the intervention and the control arms respectively
- Design_result$assignment_message
- 
- # the statement about how to get the whole randomization space to use in constrained randomization
- Design_result$scheme_message
- 
- # the statement about the cutoff in the constrained space
- Design_result$cutoff_message
- 
- # the statement about the selected scheme from constrained randomization
- Design_result$choice_message
- 
- 
- # the data frame containing the allocation scheme, the clustername as well as the original data frame of covariates
- Design_result$data_CR
- 
- # the descriptive statistics for all the variables by the two arms from the selected scheme
- Design_result$baseline_table
-
- # the cluster pair descriptive, which is useful for valid randomization check
- Design_result$cluster_coin_des
-
- # the overall allocation summary
- Design_result$overall_allocations
+ # GEE for binary outcome
+ print(est_uee_ind_bin)
 
 ```
 
-From the output of `Design_result$baseline_table`, the selected scheme is able to properly balance the baseline values of the covariates. The selected scheme is shown in `Design_result$allocation`. 
+### Simulated dataset with 12 clusters and 5 periods
 
-## `cvrall()` example for stratified constrained randomization
-
-User-defined weights can be used to induce stratification on one or more categorical variables. In the study presented by [@dickinson2015pragmatic], there are 8 `"Urban"` and 8 `"Rural"` counties. A user-defined weight of `1,000` is added to the covariate of `location`, while these weights for other covariates are all `1`. Intuitively, a large weight assigned to a covariate sharply penalizes any imbalance of that covariates, therefore including schemes that are optimally balanced with respect to that covariate in the constrained randomization space. In practice, the resulting constrained space approximates the stratified randomization space on that covariate. In our illustrative data example, since half of the counties are located in rural areas, perfect balance is achieved by considering constrained randomization with the large weight for `location` variable. Alternatively, the option of `stratify` is able to perform the equivalent stratification on the stratifying variables specified.
-
-```{r cvrallst1, fig.keep="all", fig.width = 7, fig.height=4}
-# Stratification on location, with constrained randomization on other specified covariates
-
-Design_stratified_result1 <- cvrall(clustername = Dickinson_design$county,
-                                     balancemetric = "l2",
-                                     x = data.frame(Dickinson_design[ , c("location", "inciis", 
-                                                                          "uptodateonimmunizations", 
-                                                                          "hispanic", "incomecat")]),
-                                     ntotal_cluster = 16,
-                                     ntrt_cluster = 8,
-                                     categorical = c("location", "incomecat"),
-                                     weights = c(1000, 1, 1, 1, 1),
-                                     cutoff = 0.1,
-                                     seed = 12345) 
-
-```
-
-```{r , fig.keep="all", fig.width = 7, fig.height=4}
-Design_stratified_result1$baseline_table
-
-```
-
-```{r cvrallst2, fig.keep="all", fig.width = 7, fig.height=4}
-# An alternative and equivalent way to stratify on location
-
-Design_stratified_result2 <- cvrall(clustername = Dickinson_design$county,
-                                     balancemetric = "l2",
-                                     x = data.frame(Dickinson_design[ , c("location", "inciis",
-                                                                          "uptodateonimmunizations", 
-                                                                          "hispanic", "incomecat")]),
-                                     ntotal_cluster = 16,
-                                     ntrt_cluster = 8,
-                                     categorical = c("location", "incomecat"),
-                                     stratify = "location",
-                                     cutoff = 0.1,
-                                     seed = 12345, 
-                                     check_validity = TRUE)
-
-```
-
-
-
-
-```{r , fig.keep="all", fig.width = 7, fig.height=4}
-Design_stratified_result2$baseline_table
-
-```
-The results from `Design_stratified_result1$baseline_table` and `Design_stratified_result2$baseline_table` are the same. The final selected scheme from cvrall() now has 4 `"Urban"` counties in both arms. The `location` covariate has been stratified for the randomization for the randomization through the `weights` or `stratify` argument in the ` cvrall()` function. 
-
-
-## `cvrcov()` example for covariate-by-covariate constrained randomization
-
-
-For the covariate-by-covariate randomization, we used the `cvrcov()` function to randomize 8 out of the 16 counties into the practice-based. For the definition of the whole randomization space, if the total number of all possible schemes is smaller than `100,000`, we enumerate all the schemes as the whole randomization space. Otherwise, we simulate `100,000` unique schemes. Location has `"Rural"` and `"Urban"`. The level of `"Rural"` was then kept as 1 in `cvrcov()` and `"Urban"` is 0. Then we constrained the randomization space to have the schemes with absolute total difference of location be smaller than or equal to `5`, absolute mean difference of percentages of children ages 19-35 months in the CIIS less than or equal to `0.5` fraction of the overall mean, and absolute mean difference of income to be less than or equal to the `0.4` fraction of the overall mean. Finally, a randomization scheme is sampled from the constrained space. 
-
-We saved the constrained randomization space in a CSV file in `"dickinson_cov_constrained.csv"`, the first column of which is an indicator variable of the finally selected scheme (`1`) or not (`0`). 
-
-
-
-```{r cvrcov, fig.keep="all", fig.width = 7, fig.height=4}
-
-# change the categorical variable of interest to have numeric representation
-Dickinson_design_numeric <- Dickinson_design
-Dickinson_design_numeric$location = (Dickinson_design$location == "Rural") * 1
-
-Design_cov_result <- cvrcov(clustername = Dickinson_design_numeric$county,
-                            x = data.frame(Dickinson_design_numeric[ , c("location", "inciis", 
-                                                                          "uptodateonimmunizations", 
-                                                                          "hispanic", "income")]),
-                            ntotal_cluster = 16,
-                            ntrt_cluster = 8,
-                            constraints = c("s5", "mf.5", "any", "any", "mf0.4"), 
-                            categorical = c("location"),
-                            ###### Option to save the constrained space #####
-                            # savedata = "dickinson_cov_constrained.csv",
-                            seed = 12345, 
-                            check_validity = TRUE)
- 
-
-```
-
-
-The we had the following output: 
-```{r set-options2, echo=FALSE, fig.keep="all", fig.width = 7, fig.height=4}
-options(width = 100)
- 
-```
-
-```{r , fig.keep="all", fig.width = 7, fig.height=4}
-
-
- # the allocation scheme from constrained randomization
- Design_cov_result$allocation
- 
-
- # the statement about how many clusters to be randomized to the intervention and the control arms respectively
- Design_cov_result$assignment_message
- 
- # the statement about how to get the whole randomization space to use in constrained randomization
- Design_cov_result$scheme_message
- 
-
- # the data frame containing the allocation scheme, the clustername as well as the original data frame of covariates
- Design_cov_result$data_CR
- 
- # the descriptive statistics for all the variables by the two arms from the selected scheme
- Design_cov_result$baseline_table
-
-# the cluster pair descriptive, which is useful for valid randomization check
-Design_cov_result$cluster_coin_des
-
-# the overall allocation summary
-Design_cov_result$overall_allocations
-
-```
-
-From the output of `Design_cov_result$baseline_table`, the selected scheme is able to properly balance the baseline values of the covariates. The selected scheme is shown in `Design_cov_result$allocation`. 
-
-
-## Analysis: clustered permutation test
-
-At the end of cluster randomized trials, individual outcomes are collected. Permutation test based on [@gail1996design] and [@li2016evaluation] is then applied to the continuous or binary outcome with some individual-level covariates. 
-
-The permutation test is implemented in a two-step procedure. In the first step, an outcome regression model is fitted for response $Y_{ij}$ with covariates $\textbf{z}_{ij}$. This is done by fitting a linear regression model for continuous responses and a logistic regression model for binary responses [@gail1996design], ignoring the clustering of responses. The individual residual $r_{ij}=Y_{ij}-\hat{Y}_{ij}$ can be calculated from the predicted response for each individual by $\hat{Y}_{ij}$. In the second step, cluster-specific residual means are obtained as $\bar{r}_{i\cdot}=\sum_{j=1}^{m_i}r_{ij}/m_i$. The observed test statistic is then computed as $U=\frac{1}{n_T}\sum_{i=1}^nW_i\bar{r}_{i\cdot}-
-\frac{1}{n_C}\sum_{i=1}^n(1-W_i)\bar{r}_{i\cdot}$, where $W_i=1$ if the $i$th cluster is assigned to the treatment arm and $W_i=0$ otherwise, and $n_T=\sum_{i=1}^nW_i$, $n_C=\sum_{i=1}^n(1-W_i)$ are the number of treated and control clusters.
-
-Suppose there are $S$ randomization schemes in the constrained randomization space. To obtain the permutation distribution of the test statistic, we permute the labels of the treatment indicator according to the constrained randomization space, and compute a value of $U_s$ ($s=1,\ldots,S$). The collection of these values $\{U_s:s=1,\ldots,S\}$ forms the null distribution of the permutation test statistic. The p-value is then computed by $\text{p-value}=\frac{1}{S}\sum_{s=1}^S \mathbb{I}(|U_s|\geq |U|)$. 
-
-The `cptest()` function in the `cvcrand` package is used to perform the permutation test for the intervention effect of cluster randomized trials. 
-
-Each categorical variable is transformed into dummy variables to fit in the linear model or logistic regression for the permutation test. When transforming a categorical variable to dummy variables, the reference level will be dropped if the categorical variable is specified as a factor. Otherwise, the first level in the alphanumerical order will be dropped. Users can also specify a certain reference level for each categorical variable by manually coding dummy variables before running the `cptest()` function.
-
-## `cptest()` example
-
-Suppose that the researchers were able to assess 300 children in each cluster in a study presented by [@dickinson2015pragmatic], and the cluster randomized trial is processed with the selected randomization scheme from the example above of the `cvrall()` function. We expanded the values of the cluster-level covariates on the covariates' values of the individuals, according to which cluster they belong to. The correlated individual outcome of up-to-date on immunizations (`1`) or not (`0`) is then simulated using a generalized linear mixed model (GLMM) with a logistic link to induce correlation by including a random effect at the county level. The intracluster correlation (ICC) was set to be 0.01, using the latent response definition provided in [@eldridge2009intra]. This is a reasonable value for population health studies [@hannan1994parameters]. We simulated one data set, with the outcome data dependent on the county-level covariates used in the constrained randomization design and a positive treatment effect so that the practice-based intervention increases up-to-date immunization rates more than the community-based intervention. For each individual child, the outcome is equal to `1` if he or she is up-to-date on immunizations and `0` otherwise.
 
 ```{r, echo=FALSE, results='asis'}
-knitr::kable(head(Dickinson_outcome, 10))
+knitr::kable(head(sampleSWCRTLarge))
 ```
 
-We used the `cptest()` function to process the clustered permutation test on the binary outcome of the status of up-to-date on immunizations. We input the file about the constrained space with the first column indicating the final scheme. The permutation test is on the continuous covariates of `"inciis"`, `"uptodateonimmunizations"`, `"hispanic"`, as well as categorical variables of `"location"` and `"incomecat"`. Location has `"Rural"` and `"Urban"`. The level of `"Rural"` was then dropped in `cptest()`. As income category has three levels of `"low"`, `"med"`, and `"high"`,  the level of `"high"` was dropped to create dummy variables according to the alphanumerical order as well.
+```{r geemaee_large, fig.keep="all", fig.width = 7, fig.height=4}
 
-```{r cptest, fig.keep="all", fig.width = 7, fig.height=4}
- Analysis_result <- cptest(outcome = Dickinson_outcome$outcome,
-                           clustername = Dickinson_outcome$county,
-                           z = data.frame(Dickinson_outcome[ , c("location", "inciis",
-                               "uptodateonimmunizations", "hispanic", "incomecat")]), 
-                            cspacedatname = system.file("dickinson_constrained.csv", package = "cvcrand"),                                 
-                           outcometype = "binary",                                                      
-                           categorical = c("location","incomecat"))
+########################################################################
+### Example 2): simulated SW-CRT with larger cluster-period sizes (20~30)
+########################################################################
+## This will elapse longer. 
+sampleSWCRT = sampleSWCRTLarge
+
+### Individual-level id, period, outcome, and design matrix
+id = sampleSWCRT$id; period =  sampleSWCRT$period;
+X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'period5', 'treatment')])
+m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
+### design matrix for correlation parameters
+Z = createzCrossSec(m) 
+
+### (1) Matrix-adjusted estimating equations and GEE 
+### on continous outcome with nested exchangeable correlation structure
+ 
+### MAEE
+est_maee_ind_con = geemaee(y = sampleSWCRT$y_con, 
+                           X = X, id  = id, Z = Z, 
+                           family = "continuous", 
+                           maxiter = 500, epsilon = 0.001, 
+                           printrange = TRUE, alpadj = TRUE, 
+                           shrink = "ALPHA", makevone = FALSE)
+print(est_maee_ind_con)
+
+### GEE
+est_uee_ind_con = geemaee(y = sampleSWCRT$y_con, 
+                          X = X, id = id, Z = Z, 
+                          family = "continuous", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
+print(est_uee_ind_con)
+
+### (2) Matrix-adjusted estimating equations and GEE 
+### on binary outcome with nested exchangeable correlation structure
+
+### MAEE
+est_maee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                           X = X, id = id, Z = Z, 
+                           family = "binomial", 
+                           maxiter = 500, epsilon = 0.001, 
+                           printrange = TRUE, alpadj = TRUE, 
+                           shrink = "ALPHA", makevone = FALSE)
+print(est_maee_ind_bin)
+
+### GEE
+est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                          X = X, id = id, Z = Z, 
+                          family = "binomial", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
+print(est_uee_ind_bin)
 
 
-``` 
+```
 
-The result of `"cptest()"` includes the final scheme for the cluster randomized trial, the p-value from the permutation test as well as a statement about that p-value.
 
-```{r cptestre, fig.keep="all", fig.width = 7, fig.height=4}
- Analysis_result 
-``` 
+## `cpgeeSWD()` example: cluster-period GEE for estimating the marginal mean and correlation parameters in cross-sectional SW-CRTs
 
-From the p-value of `0.042` in `Analysis_result`, the probability of up-to-date on immunizations for the practice-based approach (`1`) is significantly different from that for the population-based approach (`0`). 
+The `cpgeeSWD()` function implements the cluster-period GEE developed for cross-sectional stepped wedge cluster randomized trials (SW-CRTs). It provides valid estimation and inference for the treatment effect and intraclass correlation parameters within the GEE framework, and is computationally efficient for analyzing SW-CRTs with large cluster sizes. The program currently only allows for a marginal mean model with discrete period effects and the intervention indicator without additional covariates. The program offers bias-corrected ICC estimates as well as bias-corrected sandwich variances for both the treatment effect parameter and the ICC parameters. The technical details of the cluster-period GEE approach are provided in [@kxaa056].
+
+### Simulated dataset with 12 clusters and 4 periods.
+
+We summarize the individual-level simulated SW-CRT data to cluster-period data and use the `cpgeeSWD()` function to estimate the marginal mean and correlation parameters on cluster-period means of binary outcome. We first transform the variables to get the cluster-period mean outcome `y_cp`, mean parameters' design matrix `X_cp` as well as other arguments.  
+
+```{r cpgee_gather_small, fig.keep="all", fig.width = 7, fig.height=4}
+
+########################################################################
+### Example 1): simulated SW-CRT with smaller cluster-period sizes (5~10)
+########################################################################
+
+sampleSWCRT = sampleSWCRTSmall
+
+### cluster-period id, period, outcome, and design matrix
+### id, period, outcome
+id = sampleSWCRT$id; period = sampleSWCRT$period; y =  sampleSWCRT$y_bin
+X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'treatment')])
+ 
+m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
+clp_mu = tapply(y,list(id,period), FUN=mean)
+y_cp = c(t(clp_mu))
+ 
+### design matrix for correlation parameters
+trt = tapply(X[, t + 1], list(id, period), FUN=mean)
+trt = c(t(trt))
+
+time = tapply(period,list(id, period), FUN = mean); time = c(t(time))
+X_cp = matrix(0, n * t, t)
+
+s = 1
+for (i in 1:n) { for (j in 1:t) { X_cp[s, time[s]] = 1; s = s + 1 }}
+X_cp = cbind(X_cp, trt); id_cp = rep(1:n, each = t); m_cp =  c(t(m))
+```
+
+We implement the `cpgeeSWD()` function on all the three choices of the correlation structure including `"exchangeable"`, `"nest_exch"` and `"exp_decay"`. We consider both matrix-adjusted estimating equations (MAEE) with `alpadj = TRUE` and uncorrected generalized estimating equations (GEE) with `alpadj = FALSE`. 
+
+
+```{r cpgee_small, fig.keep="all", fig.width = 7, fig.height=4}
+
+### cluster-period matrix-adjusted estimating equations (MAEE) 
+### with exchangeable, nested exchangeable and exponential decay correlation structures 
+# exponential
+est_maee_exc = cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
+                        m = m_cp, corstr = "exchangeable", 
+                        alpadj = TRUE)
+print(est_maee_exc)
+
+# nested exchangeable
+est_maee_nex = cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
+                        m = m_cp, corstr = "nest_exch", 
+                        alpadj = TRUE)
+print(est_maee_nex)
+
+# exponential decay 
+est_maee_ed = cpgeeSWD(y  = y_cp, X = X_cp, id = id_cp, 
+                       m = m_cp, corstr = "exp_decay", 
+                       alpadj = TRUE)
+print(est_maee_ed)
+ 
+
+### cluster-period GEE 
+### with exchangeable, nested exchangeable and exponential decay correlation structures
+
+# exchangeable
+est_uee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
+                        m = m_cp, corstr = "exchangeable",
+                        alpadj = FALSE)
+print(est_uee_exc)
+
+# nested exchangeable
+est_uee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
+                        m = m_cp, corstr = "nest_exch", 
+                        alpadj = FALSE)
+print(est_uee_nex)
+
+# exponential decay 
+est_uee_ed <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
+                       m = m_cp, corstr = 'exp_decay', 
+                       alpadj = FALSE)
+print(est_uee_ed)
+
+
+
+```
+
+### Simulated dataset with 12 clusters and 5 periods
+
+```{r cpgee_large, fig.keep="all", fig.width = 7, fig.height=4}
+
+########################################################################
+### Example 2): simulated SW-CRT with larger cluster-period sizes (20~30)
+########################################################################
+
+sampleSWCRT = sampleSWCRTLarge
+
+### cluster-period id, period, outcome, and design matrix
+### id, period, outcome
+id = sampleSWCRT$id; period =  sampleSWCRT$period; y =  sampleSWCRT$y_bin
+X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'period5', 'treatment')])
+ 
+m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
+clp_mu<-tapply(y,list(id,period), FUN=mean)
+y_cp <- c(t(clp_mu))
+ 
+### design matrix for correlation parameters
+trt <- tapply(X[, t + 1], list(id, period), FUN=mean)
+trt <- c(t(trt))
+
+time <- tapply(period,list(id, period), FUN = mean); time <- c(t(time))
+X_cp <- matrix(0, n * t, t)
+
+s = 1
+for(i in 1:n){for(j in 1:t){X_cp[s, time[s]] <- 1; s = s + 1}}
+X_cp <- cbind(X_cp, trt); id_cp <- rep(1:n, each= t); m_cp <-  c(t(m))
+
+### cluster-period matrix-adjusted estimating equations (MAEE) 
+### with exchangeable, nested exchangeable and exponential decay correlation structures 
+# exponential
+est_maee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
+                         m = m_cp, corstr = "exchangeable", 
+                         alpadj = TRUE)
+print(est_maee_exc)
+
+# nested exchangeable
+est_maee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
+                         m = m_cp, corstr = "nest_exch", 
+                         alpadj = TRUE)
+print(est_maee_nex)
+
+# exponential decay 
+est_maee_ed <- cpgeeSWD(y  = y_cp, X = X_cp, id = id_cp, 
+                        m = m_cp, corstr = "exp_decay", 
+                        alpadj = TRUE)
+print(est_maee_ed)
+ 
+
+### cluster-period GEE 
+### with exchangeable, nested exchangeable and exponential decay correlation structures
+
+# exchangeable
+est_uee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
+                        m = m_cp, corstr = "exchangeable",
+                        alpadj = FALSE)
+print(est_uee_exc)
+
+# nested exchangeable
+est_uee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
+                        m = m_cp, corstr = "nest_exch", 
+                        alpadj = FALSE)
+print(est_uee_nex)
+
+# exponential decay 
+est_uee_ed <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp, 
+                       m = m_cp, corstr = 'exp_decay', 
+                       alpadj = FALSE)
+print(est_uee_ed)
+
+```
+## `simbinPROBIT()` example: generating correlated binary data using the multivariate probit method
+
+The `simbinPROBIT()` function generates correlated binary data using the multivariate Probit method ([@emrich1991method]). It simulates a vector of binary outcomes according the specified marginal mean vector and correlation structure. Constraints and compatibility between the marginal mean and correlation matrix are checked.
+
+We use the `simbinPROBIT()` function to generate correlated binary data with different correlation structures. We consider simulating a cross-sectional SW-CRT dataset with 2 clusters, 3 periods with the same cluster-period size of 5. We use two mean vectors for the two clusters and specify the `mu` argument.  
+
+For the exchangeable correlation structure, we specify both the within-period and inter-period correlation parameters to be `0.015`. We use `0.03` and `0.015` for the within-period and inter-period correlations, respectively. The exponential decay correlation structure has an decay parameter `0.8` with the within-period correlation parameter `0.03`.
+
+```{r sim_ep, fig.keep="all", fig.width = 7, fig.height=4}
+
+
+#### Simulate 2 clusters, 3 periods and cluster-period size of 5
+
+t = 3; n = 2; m = 5
+# means of cluster 1
+u_c1 = c(0.4, 0.3, 0.2)
+u1 <- rep(u_c1, c(rep(m, t)))
+# means of cluster 2
+u_c2 = c(0.35, 0.25, 0.2)
+u2 <- rep(u_c2, c(rep(m, t)))
+
+# List of mean vectors
+mu = list(); mu[[1]] = u1; mu[[2]] = u2;
+
+# List of correlation matrices
+
+## correlation parameters
+alpha0 = 0.03; alpha1 = 0.015; rho = 0.8
+
+## (1) exchangeable
+Sigma = list()
+Sigma[[1]] = diag(m * t) * ( 1 - alpha1) + matrix(alpha1, m * t,  m * t )
+
+Sigma[[2]] = diag(m * t) * ( 1 - alpha1) + matrix(alpha1, m * t,  m * t )
+
+y_exc = simbinPROBIT(mu = mu, Sigma = Sigma, n = n)
+
+## (2) nested exchangeable
+Sigma = list()
+cor_matrix = matrix(alpha1, m * t,  m * t)
+loc1 = 0; loc2 = 0
+for(t in 1:t){loc1 = loc2 + 1; loc2 = loc1 + m - 1
+  for(i in loc1:loc2){for(j in loc1:loc2){
+         if(i != j){cor_matrix[i, j] = alpha0}else{cor_matrix[i, j] = 1}}}}
+ 
+Sigma[[1]] = cor_matrix; Sigma[[2]] = cor_matrix
+
+y_nex = simbinPROBIT(mu = mu, Sigma = Sigma, n = n)
+
+## (3) exponential decay
+ 
+Sigma = list()
+ 
+### function to find the period of the ith index
+ region_ij<-function(points, i){diff = i - points
+     for(h in 1:(length(diff) - 1)){if(diff[h] > 0 & diff[h + 1] <= 0){find <- h}}
+  return(find)}
+
+ cor_matrix = matrix(0,  m * t,  m * t)
+ useage_m = cumsum(m * t); useage_m = c(0, useage_m)
+
+ for(i in 1:(m * t)){i_reg = region_ij(useage_m, i)
+      for(j in 1:(m * t)){j_reg = region_ij(useage_m, j)
+          if(i_reg == j_reg & i != j){
+              cor_matrix[i, j] = alpha0}else if(i == j){cor_matrix[i, j] = 1
+ }else if(i_reg != j_reg){cor_matrix[i,j] = alpha0 * (rho^(abs(i_reg - j_reg)))}}}
+
+Sigma[[1]] = cor_matrix; Sigma[[2]] = cor_matrix
+
+y_ed = simbinPROBIT(mu = mu, Sigma = Sigma, n = n)
+
+```
+
+## `simbinCLF()` example: generating correlated binary data using the conditional linear family method
+
+The `simbinCLF()` function generates correlated binary data using the conditional linear family method ([@qaqish2003family]). It simulates a vector of binary outcomes according the specified marginal mean vector and correlation structure. Natural constraints and compatibility between the marginal mean and correlation matrix are checked.
+
+We use the `simbinCLF()` function to generate correlated binary data with different correlation structures. We consider simulating a cross-sectional SW-CRT dataset with 2 clusters, 3 periods with the same cluster-period size of 5. We use two mean vectors for the two clusters and specify the `mu` argument.  
+
+For the exchangeable correlation structure, we specify both the within-period and inter-period correlation parameters to be `0.015`. We use `0.03` and `0.015` for the within-period and inter-period correlations, respectively. The exponential decay correlation structure has an decay parameter `0.8` with the within-period correlation parameter `0.03`. 
+
+
+```{r sim_clf, fig.keep="all", fig.width = 7, fig.height=4}
+##### Simulate 2 clusters, 3 periods and cluster-period size of 5
+
+t = 3; n = 2; m = 5
+ 
+# means of cluster 1
+u_c1 = c(0.4, 0.3, 0.2)
+u1 <- rep(u_c1, c(rep(m, t)))
+# means of cluster 2
+u_c2 = c(0.35, 0.25, 0.2)
+u2 <- rep(u_c2, c(rep(m, t)))
+
+# List of mean vectors
+mu = list()
+mu[[1]] = u1; mu[[2]] = u2;
+
+# List of correlation matrices
+ 
+## correlation parameters
+alpha0 = 0.03; alpha1 = 0.015; rho = 0.8
+
+## (1) exchangeable
+Sigma = list()
+Sigma[[1]] = diag(m * t) * ( 1 - alpha1) + matrix(alpha1, m * t,  m * t )
+Sigma[[2]] = diag(m * t) * ( 1 - alpha1) + matrix(alpha1, m * t,  m * t )
+y_exc = simbinCLF(mu = mu, Sigma = Sigma, n = n)
+
+## (2) nested exchangeable
+Sigma = list()
+cor_matrix = matrix(alpha1, m * t,  m * t)
+loc1 = 0; loc2 = 0
+for(t in 1:t){loc1 = loc2 + 1; loc2 = loc1 + m - 1
+    for(i in loc1:loc2){for(j in loc1:loc2){
+         if(i != j){cor_matrix[i, j] = alpha0}else{cor_matrix[i, j] = 1}}}}
+ 
+Sigma[[1]] = cor_matrix; Sigma[[2]] = cor_matrix
+y_nex = simbinCLF(mu = mu, Sigma = Sigma, n = n)
+
+## (3) exponential decay
+ 
+Sigma = list()
+
+### function to find the period of the ith index
+region_ij<-function(points, i){diff = i - points
+     for(h in 1:(length(diff) - 1)){if(diff[h] > 0 & diff[h + 1] <= 0){find <- h}}
+  return(find)}
+
+cor_matrix = matrix(0,  m * t,  m * t)
+useage_m = cumsum(m * t); useage_m = c(0, useage_m)
+
+for(i in 1:(m * t)){i_reg = region_ij(useage_m, i)
+      for(j in 1:(m * t)){j_reg = region_ij(useage_m, j)
+          if(i_reg == j_reg & i != j){
+              cor_matrix[i, j] = alpha0}else if(i == j){cor_matrix[i, j] = 1
+ }else if(i_reg != j_reg){cor_matrix[i,j] = alpha0 * (rho^(abs(i_reg - j_reg)))}}}
+
+Sigma[[1]] = cor_matrix; Sigma[[2]] = cor_matrix
+
+y_ed = simbinCLF(mu = mu, Sigma = Sigma, n = n)
+
+```
+
 
 # Session Information
 
