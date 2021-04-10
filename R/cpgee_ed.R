@@ -13,7 +13,7 @@ cpgee_ed = function (y, X, id, m, family, maxiter, epsilon, printrange, alpadj, 
 	# last: vector with ending row for cluster i
 	#####################################################################################
 
-	BEGINEND = function(n){
+	BEGINEND = function (n) {
 		last = cumsum(n)
 		first = last-n+1
 		return(cbind(first, last))
