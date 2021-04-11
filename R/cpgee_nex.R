@@ -44,8 +44,8 @@ cpgee_nex = function (y, X, id, m, family, maxiter, epsilon, printrange, alpadj)
   # row of E(d(cov)/dbeta) (ie Q) matrix
   #####################################################################################
 
-  GETROWB=function(mu,j,k,X,y){
-    row = - (y[j]-mu[j]) * X[j,] * mu[j] * (1-mu[j]) -
+  GETROWB = function (mu, j, k, X, y) {
+    row = - (y[j] - mu[j]) * X[j,] * mu[j] * (1-mu[j]) -
         (y[k] - mu[k]) * X[k,]*mu[k] * (1 - mu[k])
     return(row)
   }
@@ -62,7 +62,7 @@ cpgee_nex = function (y, X, id, m, family, maxiter, epsilon, printrange, alpadj)
   # residuals for beta estimating equation
   #####################################################################################
 
-  CREATEA = function(mu, y){
+  CREATEA = function (mu, y) {
     return(y - mu)
   }
 
