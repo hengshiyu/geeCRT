@@ -2,7 +2,7 @@
 #' @title simulated large SW-CRT data
 #' @description
 #'   Simulated cross-sectional individual-level SW-CRT data with 12 clusters and 5 periods. The cluster-period size is uniformly distributed between 20 and 30.
-#'   The correlated binary and continous outcomes are used for analysis as examples.
+#'   The correlated binary and continuous outcomes are used for analysis as examples.
 #' @docType data
 #' @format A data frame with 1508 rows and 10 variables:
 #' \describe{

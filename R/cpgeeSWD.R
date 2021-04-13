@@ -35,19 +35,19 @@
 #'
 #' Li, F. (2020). Design and analysis considerations for cohort stepped wedge cluster randomized trials with a decay correlation structure. Statistics in Medicine, 39(4), 438-455.
 #'
-#' Li, F., Yu, H., Rathouz, P., Turner, E. L., Preisser, J. S. (2021). Marginal modeling of cluster-period means and intraclass correlations in stepped wedge designs with binary outcomes. Biostatistics, kxaa056. 
+#' Li, F., Yu, H., Rathouz, P., Turner, E. L., Preisser, J. S. (2021). Marginal modeling of cluster-period means and intraclass correlations in stepped wedge designs with binary outcomes. Biostatistics, kxaa056.
 #'
 #' @export
 #' @examples
 #'
 #' # Simulated SW-CRT example with binary outcome
-#' 
+#'
 #' ########################################################################
 #' ### Example 1): simulated SW-CRT with smaller cluster-period sizes (5~10)
 #' ########################################################################
-#' 
+#'
 #' sampleSWCRT = sampleSWCRTSmall
-#' 
+#'
 #' #############################################################
 #' ### cluster-period id, period, outcome, and design matrix ###
 #' #############################################################
@@ -75,22 +75,22 @@
 #'
 #' # exchangeable
 #' est_maee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                          m = m_cp, corstr = "exchangeable", 
+#'                          m = m_cp, corstr = 'exchangeable',
 #'                          alpadj = TRUE)
 #' print(est_maee_exc)
-#' 
+#'
 #' # nested exchangeable
 #' est_maee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                          m = m_cp, corstr = "nest_exch", 
-#'							alpadj = TRUE)
+#'                          m = m_cp, corstr = 'nest_exch',
+#'                          alpadj = TRUE)
 #' print(est_maee_nex)
-#' 
+#'
 #' # exponential decay
 #' est_maee_ed <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                         m = m_cp, corstr = "exp_decay", 
-#'						   alpadj = TRUE)
+#'                         m = m_cp, corstr = 'exp_decay',
+#'                         alpadj = TRUE)
 #' print(est_maee_ed)
-#' 
+#'
 #' #####################################################
 #' ### cluster-period GEE
 #' ### with exchangeable, nested exchangeable and exponential decay correlation structures ###
@@ -98,28 +98,28 @@
 #'
 #' # exchangeable
 #' est_uee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                         m = m_cp, corstr = "exchangeable", 
-#'						   alpadj = FALSE)
+#'                         m = m_cp, corstr = 'exchangeable',
+#'                         alpadj = FALSE)
 #' print(est_uee_exc)
 #'
 #' # nested exchangeable
 #' est_uee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                         m = m_cp, corstr = "nest_exch", 
-#'						   alpadj = FALSE)
+#'                         m = m_cp, corstr = 'nest_exch',
+#'                         alpadj = FALSE)
 #' print(est_uee_nex)
 #'
 #' # exponential decay
 #' est_uee_ed <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                        m = m_cp, corstr = 'exp_decay', 
-#'						  alpadj = FALSE)
+#'                        m = m_cp, corstr = 'exp_decay',
+#'                        alpadj = FALSE)
 #' print(est_uee_ed)
-#' 
+#'
 #' ########################################################################
 #' ### Example 2): simulated SW-CRT with larger cluster-period sizes (20~30)
 #' ########################################################################
-#' 
+#'
 #' sampleSWCRT = sampleSWCRTLarge
-#' 
+#'
 #' #############################################################
 #' ### cluster-period id, period, outcome, and design matrix ###
 #' #############################################################
@@ -147,20 +147,20 @@
 #'
 #' # exchangeable
 #' est_maee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                          m = m_cp, corstr = "exchangeable", 
+#'                          m = m_cp, corstr = 'exchangeable',
 #'                          alpadj = TRUE)
 #' print(est_maee_exc)
 #'
 #' # nested exchangeable
 #' est_maee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                          m = m_cp, corstr = "nest_exch", 
-#'							alpadj = TRUE)
+#'                          m = m_cp, corstr = 'nest_exch',
+#'                          alpadj = TRUE)
 #' print(est_maee_nex)
 #'
 #' # exponential decay
 #' est_maee_ed <- cpgeeSWD(y  = y_cp, X = X_cp, id = id_cp,
-#'                         m = m_cp, corstr = "exp_decay", 
-#'						   alpadj = TRUE)
+#'                         m = m_cp, corstr = 'exp_decay',
+#'                         alpadj = TRUE)
 #' print(est_maee_ed)
 #'
 #' #####################################################
@@ -170,23 +170,23 @@
 #'
 #' # exchangeable
 #' est_uee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                         m = m_cp, corstr = "exchangeable",
-#'						   alpadj = FALSE)
+#'                         m = m_cp, corstr = 'exchangeable',
+#'                         alpadj = FALSE)
 #' print(est_uee_exc)
 #'
 #' # nested exchangeable
 #' est_uee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                         m = m_cp, corstr = "nest_exch", 
-#'						   alpadj = FALSE)
+#'                         m = m_cp, corstr = 'nest_exch',
+#'                         alpadj = FALSE)
 #' print(est_uee_nex)
 #'
 #' # exponential decay
 #' est_uee_ed <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                        m = m_cp, corstr = 'exp_decay', 
-#'						  alpadj = FALSE)
+#'                        m = m_cp, corstr = 'exp_decay',
+#'                        alpadj = FALSE)
 #' print(est_uee_ed)
-#' 
-#' 
+#'
+#'
 #'
 #'
 #' @return \code{outbeta} estimates of marginal mean model parameters and standard errors with different finite-sample bias corrections.
@@ -212,20 +212,24 @@
 #' @return \code{niter} number of iterations used in the Fisher scoring updates for model fitting
 
 
-cpgeeSWD = function (y, X, id, m, corstr, family = "binomial", maxiter = 500, epsilon = 0.001, printrange = TRUE, alpadj = FALSE, rho.init = NULL) {
-  
-  if (corstr == "exchangeable") {
+cpgeeSWD = function(y, X, id, m, corstr, family = "binomial", maxiter = 500,
+    epsilon = 0.001, printrange = TRUE, alpadj = FALSE, rho.init = NULL) {
 
-	cpgee_exc(y, X, id, m, family, maxiter, epsilon, printrange, alpadj)
-  
-  } else if (corstr == "nest_exch") {
+    if (corstr == "exchangeable") {
 
-	cpgee_nex(y, X, id, m, family, maxiter, epsilon, printrange, alpadj)
-  
-  } else if (corstr == "exp_decay") {
+        cpgee_exc(y, X, id, m, family, maxiter, epsilon, printrange,
+            alpadj)
 
-	cpgee_ed(y, X, id, m, family, maxiter, epsilon, printrange, alpadj, rho.init)
-  
-  }
+    } else if (corstr == "nest_exch") {
+
+        cpgee_nex(y, X, id, m, family, maxiter, epsilon, printrange,
+            alpadj)
+
+    } else if (corstr == "exp_decay") {
+
+        cpgee_ed(y, X, id, m, family, maxiter, epsilon, printrange,
+            alpadj, rho.init)
+
+    }
 
 }

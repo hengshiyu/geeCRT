@@ -91,148 +91,141 @@
 
 
 
-simbinCLF <- function (mu, Sigma, n = 1) {
+simbinCLF <- function(mu, Sigma, n = 1) {
 
+    
 
+    # a[1:n, 1:n] is the input covariance matrix of Y[1:n].  Returns
+    # b[1:n,1:n] such that b[1:t-1, t] are the slopes for regression
+    # of y[t] on y[1:t-1], for t=2:n.  Diagonals and lower half of
+    # b[,] are copied from a[,].  a[,] is assumed +ve definite
+    # symmetric, not checked.
 
-  ########################################################
-  # a[1:n, 1:n] is the input covariance matrix of Y[1:n].
-  # Returns  b[1:n,1:n] such that b[1:t-1, t] are the
-  # slopes for regression of y[t] on y[1:t-1], for t=2:n.
-  # Diagonals and lower half of b[,] are copied from a[,].
-  # a[,] is assumed +ve definite symmetric, not checked.
-  ########################################################
-
-  allreg <- function (a) {
-    n <- nrow(a)
-    b <- a
-    for(t in 2:n){
-      t1 <- t - 1
-      gt <- a[1:t1, 1:t1]
-      st <- a[1:t1, t]
-      bt <- solve(gt,st)
-      b[1:t1,t] <- bt
+    allreg <- function(a) {
+        n <- nrow(a)
+        b <- a
+        for (t in 2:n) {
+            t1 <- t - 1
+            gt <- a[1:t1, 1:t1]
+            st <- a[1:t1, t]
+            bt <- solve(gt, st)
+            b[1:t1, t] <- bt
+        }
+        return(b)
     }
-    return(b)
-  }
 
-  ########################################################
-  # returns variance matrix of binary variables with mean
-  # vector u[] and corr matrix r[,].
-  ########################################################
+    # returns variance matrix of binary variables with mean vector
+    # u[] and corr matrix r[,].
 
-  cor2var <- function(r, u){
-    s <- diag(sqrt(u * (1 - u)))
-    return(s %*% r %*% s)
-  }
-
-  ########################################################
-  # r[1:n, 1:n] is the corr mtx
-  # u[1:n] is the mean of a binary vector
-  # checks that pairwise corrs are in-range for the given u[]
-  # only upper half of r[,] is checked.
-  # return 0 if ok
-  # return 1 if out of range
-  ########################################################
-
-  chkbinc<-function(r,u){
-    n<-length(u)
-    s<-sqrt(u*(1-u))
-    for(i in 1:(n-1)){
-      for(j in (i+1):n){
-        uij <- u[i]*u[j]+r[i,j]*s[i]*s[j]
-        ok <- ((uij <= min(u[i], u[j])) & (uij >= max(0, u[i]+u[j]-1)))
-        if(!ok) {return(1)}
-      }
+    cor2var <- function(r, u) {
+        s <- diag(sqrt(u * (1 - u)))
+        return(s %*% r %*% s)
     }
-    return(0)
-  }
 
-  ########################################################
-  # Multivariate Binary Simulation by Linear Regression.
-  # Simulate a single vector.
-  # Returns a simulated binary random vector y[1:n] with mean
-  # u[1:n] and regression coefs matrix b[1:n,1:n] (obtained
-  # by calling allreg() above).
-  # y[] and u[] are column vectors.
-  # Returns -1 if the cond. linear family not reproducible
-  ########################################################
+    # r[1:n, 1:n] is the corr mtx u[1:n] is the mean of a binary
+    # vector checks that pairwise corrs are in-range for the given
+    # u[] only upper half of r[,] is checked.  return 0 if ok return
+    # 1 if out of range
 
-  mbslr1<-function(b,u){
-    n<-nrow(b)
-    y<-rep(-1,n)
-    y[1]<-rbinom(1,1,u[1])
-    for(i in 2:n){
-      i1<-i-1
-      r<-y[1:i1]-u[1:i1]              # residuals
-      ci<-u[i]+sum(r*b[1:i1,i])       # cond.mean
-      if(ci < 0 | ci > 1){
-        stop(paste("mbslr1: ERROR:",ci))
-        return(-1)
-      }
-      y[i]<-rbinom(1,1,ci)
+    chkbinc <- function(r, u) {
+        n <- length(u)
+        s <- sqrt(u * (1 - u))
+        for (i in 1:(n - 1)) {
+            for (j in (i + 1):n) {
+                uij <- u[i] * u[j] + r[i, j] * s[i] * s[j]
+                ok <- ((uij <= min(u[i], u[j])) & (uij >= max(0, 
+                  u[i] + u[j] - 1)))
+                if (!ok) {
+                  return(1)
+                }
+            }
+        }
+        return(0)
+    }
+
+    # Multivariate Binary Simulation by Linear Regression.  Simulate
+    # a single vector.  Returns a simulated binary random vector
+    # y[1:n] with mean u[1:n] and regression coefs matrix b[1:n,1:n]
+    # (obtained by calling allreg() above).  y[] and u[] are column
+    # vectors.  Returns -1 if the cond. linear family not
+    # reproducible
+
+    mbslr1 <- function(b, u) {
+        n <- nrow(b)
+        y <- rep(-1, n)
+        y[1] <- rbinom(1, 1, u[1])
+        for (i in 2:n) {
+            i1 <- i - 1
+            r <- y[1:i1] - u[1:i1]  # residuals
+            ci <- u[i] + sum(r * b[1:i1, i])  # cond.mean
+            if (ci < 0 | ci > 1) {
+                stop(paste("mbslr1: ERROR:", ci))
+                return(-1)
+            }
+            y[i] <- rbinom(1, 1, ci)
+        }
+        return(y)
+    }
+
+    if (is.null(n)) {
+
+        n = 1
+
+        if (!is.list(mu)) {
+            meanList = list()
+            meanList[[1]] = mu
+        } else {
+            meanList = mu
+        }
+
+        if (!is.list(Sigma)) {
+            corList = list()
+            corList[[1]] = Sigma
+        } else {
+            corList = Sigma
+        }
+
+        
+    } else if (n == 1) {
+        n = 1
+
+        if (!is.list(mu)) {
+            meanList = list()
+            meanList[[1]] = mu
+        } else {
+            meanList = mu
+        }
+
+        if (!is.list(Sigma)) {
+            corList = list()
+            corList[[1]] = Sigma
+        } else {
+            corList = Sigma
+        }
+
+    } else {
+        meanList = mu
+        corList = Sigma
+    }
+
+    
+
+    # Simulate correlated binary outcomes
+    y <- NULL
+    for (i in 1:n) {
+
+        r = corList[[i]]
+        u = meanList[[i]]
+
+        v <- cor2var(r, u)
+        oor <- chkbinc(r, u)
+        if (oor) {
+            stop("ERROR: Correlation out of range for given mean")
+        }
+        b <- allreg(v)
+        y <- c(y, mbslr1(b, u))
     }
     return(y)
-  }
-
-  if(is.null(n)){
-
-    n = 1
-
-    if(!is.list(mu)){
-      meanList = list()
-      meanList[[1]] = mu
-    }else{
-      meanList = mu
-    }
-
-    if(!is.list(Sigma)){
-      corList = list()
-      corList[[1]] = Sigma
-    }else{
-      corList = Sigma
-    }
-
-
-  }else if(n == 1){
-    n = 1
-
-    if(!is.list(mu)){
-      meanList = list()
-      meanList[[1]] = mu
-    }else{
-      meanList = mu
-    }
-
-    if(!is.list(Sigma)){
-      corList = list()
-      corList[[1]] = Sigma
-    }else{
-      corList = Sigma
-    }
-
-  }else{
-    meanList = mu; corList = Sigma
-  }
-
-
-
-  # Simulate correlated binary outcomes
-  y <- NULL
-  for(i in 1:n){
-
-    r = corList[[i]]
-    u = meanList[[i]]
-
-    v <- cor2var(r,u)
-    oor <- chkbinc(r,u)
-    if(oor){
-      stop("ERROR: Correlation out of range for given mean")
-    }
-    b <- allreg(v)
-    y <- c(y, mbslr1(b,u))
-  }
-  return(y)
 }
 
 
