@@ -734,7 +734,7 @@ contMAEE = function(y, X, id, Z, maxiter, epsilon, printrange, alpadj,
     NPSDFLAG = 0
     NPSDADJFLAG = 0
 
-    n = table(id)
+    n = as.vector(table(id))
     # Fit the Prentice Model
     PRENTICE_RES = FITPRENTICE(y, X, Z, n, maxiter, epsilon, VEEFLAG, 
         SINGFLAG, ROBFLAG, ALPFLAG, NPSDFLAG, NPSDADJFLAG)
