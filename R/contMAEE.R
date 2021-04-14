@@ -734,6 +734,13 @@ contMAEE = function(y, X, id, Z, maxiter, epsilon, printrange, alpadj,
     NPSDFLAG = 0
     NPSDADJFLAG = 0
 
+    # sort by id
+    id1 = id[order(id)]
+    y = y[order(id)]
+    X = X[order(id), ]
+    id = id1
+
+
     n = as.vector(table(id))
     # Fit the Prentice Model
     PRENTICE_RES = FITPRENTICE(y, X, Z, n, maxiter, epsilon, VEEFLAG, 

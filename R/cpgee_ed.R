@@ -782,6 +782,13 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
     NPSDFLAG = 0
     NPSDADJFLAG = 0
 
+    # sort by id
+    id1 = id[order(id)]
+    y = y[order(id)]
+    X = X[order(id), ]
+    m = m[order(id)]
+    id = id1
+
     n = as.vector(table(id))
     # Fit the GEE/MAEE algorithm
     PRENTICE_RES = FITPRENTICE(y, X, m, n, maxiter, epsilon, SINGFLAG, 

@@ -766,6 +766,12 @@ cpgee_exc = function(y, X, id, m, family, maxiter, epsilon, printrange,
     NPSDADJFLAG = 0
 
     # Fit the GEE/MAEE algorithm
+    id1 = id[order(id)]
+    y = y[order(id)]
+    X = X[order(id), ]
+    m = m[order(id)]
+    id = id1
+    
     n = as.vector(table(id))
 
     PRENTICE_RES = FITPRENTICE(y, X, m, n, maxiter, epsilon, SINGFLAG, 
