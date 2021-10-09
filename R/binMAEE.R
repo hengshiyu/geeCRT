@@ -1,5 +1,4 @@
-binMAEE = function(y, X, id, Z, maxiter, epsilon, printrange, alpadj, 
-    shrink, makevone) {
+binMAEE = function(y, X, id, Z, maxiter, epsilon, printrange, alpadj, shrink, makevone) {
 
     ##################################################################################### MODULE: BEGINEND Creates two vectors that have the start and
     ##################################################################################### end points for each cluster

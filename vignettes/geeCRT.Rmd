@@ -126,8 +126,7 @@ est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin,
                           maxiter = 500, epsilon = 0.001, 
                           printrange = TRUE, alpadj = FALSE, 
                           shrink = "ALPHA", makevone = FALSE)
-
- ```
+```
 
 
 Then we have the following output: 
