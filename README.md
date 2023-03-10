@@ -1,7 +1,7 @@
 # geeCRT: a package for implementing the bias-corrected generalized estimating equations in analyzing cluster randomized trials
 Hengshi Yu, Fan Li, Paul Rathouz, Elizabeth L. Turner, John Preisser 
 
-[[paper]](https://academic.oup.com/biostatistics/advance-article/doi/10.1093/biostatistics/kxaa056/6126172) | [[arXiv]](https://arxiv.org/abs/2101.00484) | [[R package]](https://cran.r-project.org/web/packages/geeCRT/index.html) | [[example code]](https://github.com/lifanfrank/clusterperiod_GEE)
+[[paper]](https://academic.oup.com/biostatistics/advance-article/doi/10.1093/biostatistics/kxaa056/6126172) | [[arXiv]](https://arxiv.org/abs/2101.00484) | [[R package]](https://cran.r-project.org/package=geeCRT) | [[example code]](https://github.com/lifanfrank/clusterperiod_GEE)
 
 **Maintainer**: Hengshi Yu (<hengshi@umich.edu>)
 
@@ -32,7 +32,7 @@ The geeCRT package constains four main functions. In the analysis of individual-
     * Li, F., Turner, E. L., & Preisser, J. S. (2018). Sample size determination for GEE analyses of stepped wedge cluster randomized trials. Biometrics, 74(4), 1450-1458.
     * Li, F., Forbes, A. B., Turner, E. L., Preisser, J. S. (2019). Power and sample size requirements for GEE analyses of cluster randomized crossover trials. Statistics in Medicine, 38(4), 636-649.
     * Li, F. (2020). Design and analysis considerations for cohort stepped wedge cluster randomized trials with a decay correlation structure. Statistics in medicine, 39(4), 438-455.
-    * Li, F., Yu, H., Rathouz, P., Turner, E. L., Preisser, J. S. (2020+). Marginal modeling of cluster period means and intraclass correlations in stepped wedge designs with binary outcomes. Under Revision at Biostatistics.
+    * Li, F., Yu, H., Rathouz, P. J., Turner, E. L., & Preisser, J. S. (2022). Marginal modeling of cluster-period means and intraclass correlations in stepped wedge designs with binary outcomes. Biostatistics, 23(3), 772-788.
 
 2. cpgeeSWD function: cluster-period generalized estimating equations for estimating the marginal mean and correlation parameters in cross-sectional stepped wedge CRTs
     * Zhao, L. P., Prentice, R. L. (1990). Correlated binary regression using a quadratic exponential model. Biometrika, 77(3), 642-648.
