@@ -1,6 +1,4 @@
 # geeCRT: a package for implementing the bias-corrected generalized estimating equations in analyzing cluster randomized trials
-[![](https://cranlogs.r-pkg.org/badges/geeCRT)](https://cran.r-project.org/package=geeCRT)
-
 Hengshi Yu, Fan Li, Paul Rathouz, Elizabeth L. Turner, John Preisser 
 
 [[paper]](https://academic.oup.com/biostatistics/advance-article/doi/10.1093/biostatistics/kxaa056/6126172) | [[arXiv]](https://arxiv.org/abs/2101.00484) | [[R package]](https://cran.r-project.org/web/packages/geeCRT/index.html) | [[example code]](https://github.com/lifanfrank/clusterperiod_GEE)
@@ -45,7 +43,7 @@ The geeCRT package constains four main functions. In the analysis of individual-
     * Preisser, J. S., Lu, B., Qaqish, B. F. (2008). Finite sample adjustments in estimating equations and covariance estimators for intracluster correlations. Statistics in Medicine, 27(27), 5764-5785.
     * Li, F., Turner, E. L., & Preisser, J. S. (2018). Sample size determination for GEE analyses of stepped wedge cluster randomized trials. Biometrics, 74(4), 1450-1458.
     * Li, F. (2020). Design and analysis considerations for cohort stepped wedge cluster randomized trials with a decay correlation structure. Statistics in medicine, 39(4), 438-455.
-    * Li, F., Yu, H., Rathouz, P., Turner, E. L., Preisser, J. S. (2020+). Marginal modeling of cluster period means and intraclass correlations in stepped wedge designs with binary outcomes. Under Revision at Biostatistics.
+    * Li, F., Yu, H., Rathouz, P. J., Turner, E. L., & Preisser, J. S. (2022). Marginal modeling of cluster-period means and intraclass correlations in stepped wedge designs with binary outcomes. Biostatistics, 23(3), 772-788.
 
 3. simbinPROBIT function: generating correlated binary data using the multivariate probit method
 
@@ -64,13 +62,13 @@ The `geeCRT` R package is available on CRAN.
 install.packages('geeCRT')
 ```
 
-### `geemaee()` example: matrix-adjusted GEE for estimating the mean and correlation parameters in CRTs
+### `geemaee()` examples: matrix-adjusted GEE for estimating the mean and correlation parameters in CRTs
 
 The `geemaee()` function implements the matrix-adjusted GEE or regular GEE developed for analyzing cluster randomized trials (CRTs). It provides valid estimation and inference for the treatment effect and intraclass correlation parameters within the population-averaged modeling framework. The program allows for flexible marginal mean model specifications. The program also offers bias-corrected intraclass correlation coefficient (ICC) estimates as well as bias-corrected sandwich variances for both the treatment effect parameter and the ICC parameters. The technical details of the matrix-adjusted GEE approach are provided in Preisser et al. (2008) and Li et al. (2018).
 
 For the individual-level data, we use the `geemaee()` function to estimate the marginal mean and correlation parameters in CRTs. We use two simulated stepped wedge CRT datasets with true nested exchangeable correlation structure to illustrate the `geemaee()` function examples. We first create an auxiliary function `createzCrossSec()` to help create the design matrix for the estimating equations of the correlation parameters. We then collect design matrix `X` for the mean parameters with five period indicators and the treatment indicator. 
 
-We implement the `geemaee()` function on both the continuous outcome and binary outcome, and consider both matrix-adjusted estimating equations (MAEE) with `alpadj = TRUE` and uncorrected generalized estimating equations (GEE) with `alpadj = FALSE`. For the `shrink` argument, we use the `"ALPHA"` method to tune step sizes and focus on using estimated variances in the correlation estimating equations rather than using unit variances by specifying `makevone = FALSE`. 
+We implement the `geemaee()` function on both the continuous outcome and binary outcome using the nested exchangeable correlation structure, and consider both matrix-adjusted estimating equations (MAEE) with `alpadj = TRUE` and uncorrected generalized estimating equations (GEE) with `alpadj = FALSE`. For the `shrink` argument, we use the `"ALPHA"` method to tune step sizes and focus on using estimated variances in the correlation estimating equations rather than using unit variances by specifying `makevone = FALSE`. 
 
 
 ```r
@@ -224,7 +222,195 @@ print(est_uee_ind_bin)
 
 ```
 
-### `cpgeeSWD()` example: cluster-period GEE for estimating the marginal mean and correlation parameters in cross-sectional SW-CRTs
+We can also use the simple exchangeable correlation structure to fit `geemaee()`. 
+
+```r
+# simulated SW-CRT with smaller cluster-period sizes (5~10)
+sampleSWCRT = sampleSWCRTSmall
+
+### Individual-level id, period, outcome, and design matrix
+id = sampleSWCRT$id; period = sampleSWCRT$period;
+X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'treatment')])
+m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
+
+### design matrix for correlation parameters (simple exchangeable correlation structure)
+Z = createzCrossSec(m) 
+Z = matrix(1, dim(Z)[1], 1) 
+# Z for simple exchangeable correlation structure
+
+### (1) Matrix-adjusted estimating equations and GEE 
+### on continuous outcome with nested exchangeable correlation structure
+ 
+### MAEE
+est_maee_ind_con = geemaee(y = sampleSWCRT$y_con, 
+                           X = X, id  = id, Z = Z, 
+                           family = "continuous", 
+                           maxiter = 500, epsilon = 0.001, 
+                           printrange = TRUE, alpadj = TRUE, 
+                           shrink = "ALPHA", makevone = FALSE)
+
+print(est_maee_ind_con)
+
+### GEE
+est_uee_ind_con = geemaee(y = sampleSWCRT$y_con, 
+                          X = X, id = id, Z = Z, 
+                          family = "continuous", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
+print(est_uee_ind_con)
+
+### (2) Matrix-adjusted estimating equations and GEE 
+### on binary outcome with nested exchangeable correlation structure
+
+### MAEE
+est_maee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                           X = X, id = id, Z = Z, 
+                           family = "binomial", 
+                           maxiter = 500, epsilon = 0.001, 
+                           printrange = TRUE, alpadj = TRUE, 
+                           shrink = "ALPHA", makevone = FALSE)
+print(est_maee_ind_bin)
+
+### GEE
+est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                          X = X, id = id, Z = Z, 
+                          family = "binomial", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
+print(est_uee_ind_bin)
+```
+
+### `geemaee()` examples: matrix-adjusted GEE for estimating the mean and correlation parameters in general CRTs
+
+We can also use the `geemaee()` function for general CRTs with only one time period. We need to specify a single column of 1's for the `Z` matrix. 
+
+```r
+# simulated SW-CRT with smaller cluster-period sizes (5~10)
+# use only the second period data to get a general CRT data
+sampleSWCRT = sampleSWCRTSmall[sampleSWCRTSmall$period == 2, ] 
+
+### Individual-level id, period, outcome, and design matrix
+id = sampleSWCRT$id; period =  sampleSWCRT$period;
+X = as.matrix(sampleSWCRT[, c('period2', 'treatment')])
+m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
+
+### design matrix for correlation parameters
+Z = createzCrossSec(m)
+Z = matrix(1, dim(Z)[1], 1)
+
+### (1) Matrix-adjusted estimating equations and GEE 
+### on continuous outcome with nested exchangeable correlation structure
+ 
+### MAEE
+est_maee_ind_con = geemaee(y = sampleSWCRT$y_con, 
+                           X = X, id  = id, Z = Z, 
+                           family = "continuous", 
+                           maxiter = 500, epsilon = 0.001, 
+                           printrange = TRUE, alpadj = TRUE, 
+                           shrink = "ALPHA", makevone = FALSE)
+print(est_maee_ind_con)
+
+### GEE
+est_uee_ind_con = geemaee(y = sampleSWCRT$y_con, 
+                          X = X, id = id, Z = Z, 
+                          family = "continuous", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
+print(est_uee_ind_con)
+
+### (2) Matrix-adjusted estimating equations and GEE 
+### on binary outcome with nested exchangeable correlation structure
+
+### MAEE
+est_maee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                           X = X, id = id, Z = Z, 
+                           family = "binomial", 
+                           maxiter = 500, epsilon = 0.001, 
+                           printrange = TRUE, alpadj = TRUE, 
+                           shrink = "ALPHA", makevone = FALSE)
+print(est_maee_ind_bin)
+
+### GEE
+est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                          X = X, id = id, Z = Z, 
+                          family = "binomial", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
+print(est_uee_ind_bin)
+```
+
+### `geemaee()` examples: matrix-adjusted GEE for estimating the mean and correlation parameters in SW-CRTs with all cluster-period sizes being 1
+
+We consider an edge case when all cluster period sizes are 1, the `geemaee()` function can still estimate the intra-period correlation parameter.
+
+```r
+### Simulated dataset with 12 clusters and large cluster sizes
+# use the first observation for each cluster-period combination
+sampleSWCRT = NULL
+for (i in 1:12) {
+  for (j in 1:5) {
+    row = sampleSWCRTLarge[sampleSWCRTLarge$id == i & 
+                             sampleSWCRTLarge$period == j, ][1, , drop = FALSE]
+    sampleSWCRT  = rbind(sampleSWCRT, row)
+  }
+}
+
+### Individual-level id, period, outcome, and design matrix
+id = sampleSWCRT$id; period =  sampleSWCRT$period;
+X = as.matrix(sampleSWCRT[, c('period2', 'treatment')])
+m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
+### design matrix for correlation parameters
+Z = createzCrossSec(m) 
+Z = matrix(1, dim(Z)[1], 1)
+
+### (1) Matrix-adjusted estimating equations and GEE 
+### on continous outcome with nested exchangeable correlation structure
+ 
+### MAEE
+est_maee_ind_con = geemaee(y = sampleSWCRT$y_con, 
+                           X = X, id  = id, Z = Z, 
+                           family = "continuous", 
+                           maxiter = 500, epsilon = 0.001, 
+                           printrange = TRUE, alpadj = TRUE, 
+                           shrink = "ALPHA", makevone = FALSE)
+print(est_maee_ind_con)
+
+### GEE
+est_uee_ind_con = geemaee(y = sampleSWCRT$y_con, 
+                          X = X, id = id, Z = Z, 
+                          family = "continuous", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
+print(est_uee_ind_con)
+
+### (2) Matrix-adjusted estimating equations and GEE 
+### on binary outcome with nested exchangeable correlation structure
+
+### MAEE
+est_maee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                           X = X, id = id, Z = Z, 
+                           family = "binomial", 
+                           maxiter = 500, epsilon = 0.001, 
+                           printrange = TRUE, alpadj = TRUE, 
+                           shrink = "ALPHA", makevone = FALSE)
+print(est_maee_ind_bin)
+
+### GEE
+est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                          X = X, id = id, Z = Z, 
+                          family = "binomial", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
+print(est_uee_ind_bin)
+```
+
+### `cpgeeSWD()` examples: cluster-period GEE for estimating the marginal mean and correlation parameters in cross-sectional SW-CRTs
 
 The `cpgeeSWD()` function implements the cluster-period GEE developed for cross-sectional stepped wedge cluster randomized trials (SW-CRTs). It provides valid estimation and inference for the treatment effect and intraclass correlation parameters within the GEE framework, and is computationally efficient for analyzing SW-CRTs with large cluster sizes. The program currently only allows for a marginal mean model with discrete period effects and the intervention indicator without additional covariates. The program offers bias-corrected ICC estimates as well as bias-corrected sandwich variances for both the treatment effect parameter and the ICC parameters. The technical details of the cluster-period GEE approach are provided in Li et al. (2021).
 

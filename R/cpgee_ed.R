@@ -1,7 +1,7 @@
-cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange, 
+cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
     alpadj, rho.init = NULL) {
 
-    
+
     ##################################################################################### MODULE: BEGINEND creates two vectors that have the start and
     ##################################################################################### end points for each cluster
 
@@ -33,7 +33,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
     # OUTPUT row of E(d(cov)/dbeta) (ie Q) matrix
 
     GETROWB = function(mu, j, k, X, y) {
-        row = -(y[j] - mu[j]) * X[j, ] * mu[j] * (1 - mu[j]) - (y[k] - 
+        row = -(y[j] - mu[j]) * X[j, ] * mu[j] * (1 - mu[j]) - (y[k] -
             mu[k]) * X[k, ] * mu[k] * (1 - mu[k])
         return(row)
     }
@@ -102,7 +102,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
             D = rbind(D, c(dj, 0))
             for (k in (j + 1):n) {
                 djk0 = sqrt(v[j] * v[k]) * rho^(abs(k - j))
-                djk1 = sqrt(v[j] * v[k]) * alpha0 * abs(k - j) * 
+                djk1 = sqrt(v[j] * v[k]) * alpha0 * abs(k - j) *
                   rho^(abs(k - j) - 1)
                 D = rbind(D, c(djk0, djk1))
             }
@@ -128,7 +128,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
             sj = (v[j]/m[j]) * (1 + (m[j] - 1) * alpha0)
             gamma_c = c(gamma_c, sj)
             for (k in (j + 1):n) {
-                sjk = sqrt(v[j] * v[k]) * alpha0 * rho^(abs(k - 
+                sjk = sqrt(v[j] * v[k]) * alpha0 * rho^(abs(k -
                   j))
                 gamma_c = c(gamma_c, sjk)
             }
@@ -177,7 +177,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
     # OUTPUT U: score vector UUtran: sum of U_i*U_i` across all
     # clusters Ustar: approximate information matrix
 
-    SCORE = function(Ustarold, beta, alpha, y, X, m, n, p, q, NPSDFLAG, 
+    SCORE = function(Ustarold, beta, alpha, y, X, m, n, p, q, NPSDFLAG,
         NPSDADJFLAG) {
         U = rep(0, p + q)
         UUtran = Ustar = matrix(0, p + q, p + q)
@@ -219,7 +219,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
                 vminomega = B - omega
                 psd_vmin = is_pos_def(vminomega)
 
-                
+
                 if (psd_vmin == 1) {
 
                   Ci = B %*% ginv(vminomega)
@@ -230,7 +230,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
                 }
             }
 
-            
+
             l = 1
             for (j in 1:n[i]) {
                 for (k in j:n[i]) {
@@ -242,7 +242,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
             # Check for positive definite of B
             if (min(eigen(B)$values) <= 0) {
                 NPSDFLAG = 1
-                stop(paste("Var(Y) of Cluster", i, "is not Positive-Definite;", 
+                stop(paste("Var(Y) of Cluster", i, "is not Positive-Definite;",
                   "Joint Distribution Does Not Exist and Program terminates"))
             }
 
@@ -267,7 +267,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
                 }
             }
         }
-        return(list(U = U, UUtran = UUtran, Ustar = Ustar, alpdata0 = alpdata0, 
+        return(list(U = U, UUtran = UUtran, Ustar = Ustar, alpdata0 = alpdata0,
             alpdata1 = alpdata1, NPSDFLAG = NPSDFLAG, NPSDADJFLAG = NPSDADJFLAG))
     }
 
@@ -333,12 +333,12 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
         f = function(alpha) {
             alpha0 = alpha[1]
             rho = alpha[2]
-            f0_smt1 = ((m - 1)/m) * v * (s0 - v/m - alpha0 * v * 
+            f0_smt1 = ((m - 1)/m) * v * (s0 - v/m - alpha0 * v *
                 (m - 1)/m)
-            f0_smt2 = sqrt(vcross) * (rho^d) * (s1 - sqrt(vcross) * 
+            f0_smt2 = sqrt(vcross) * (rho^d) * (s1 - sqrt(vcross) *
                 alpha0 * rho^d)
             f0 = sum(f0_smt1) + sum(f0_smt2)
-            f1 = sum(sqrt(vcross) * d * rho^(d - 1) * (s1 - sqrt(vcross) * 
+            f1 = sum(sqrt(vcross) * d * rho^(d - 1) * (s1 - sqrt(vcross) *
                 alpha0 * rho^d))
             return(c(f0, f1))
         }
@@ -437,9 +437,9 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
     # bias-corrected variance by Kauermann and Carroll (2001) varFG:
     # bias-corrected variance by Fay and Graubard (2001)
 
-    MAKEVAR = function(Ustarold, beta, alpha, y, X, m, n, p, q, 
+    MAKEVAR = function(Ustarold, beta, alpha, y, X, m, n, p, q,
         ROBFLAG, NPSDFLAG, NPSDADJFLAG) {
-        SCORE_RES = SCORE(Ustarold, beta, alpha, y, X, m, n, p, 
+        SCORE_RES = SCORE(Ustarold, beta, alpha, y, X, m, n, p,
             q, NPSDFLAG, NPSDADJFLAG)
         U = SCORE_RES$U
         UUtran = SCORE_RES$UUtran
@@ -465,9 +465,9 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
         sqe2 = evecs2 %*% diag(sqrevals2)
 
         # Bias-corrected variance
-        Ustar_c_array = UUtran_c_array = array(0, c(p + q, p + q, 
+        Ustar_c_array = UUtran_c_array = array(0, c(p + q, p + q,
             length(n)))
-        UUtran = UUbc = UUbc2 = UUbc3 = Ustar = inustar = matrix(0, 
+        UUtran = UUbc = UUbc2 = UUbc3 = Ustar = inustar = matrix(0,
             p + q, p + q)
 
         locx = BEGINEND(n)
@@ -517,7 +517,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
                 vminomega = B - omega
                 psd_vmin = is_pos_def(vminomega)
 
-                
+
                 if (psd_vmin == 1) {
 
                   Ci = B %*% ginv(vminomega)
@@ -534,14 +534,14 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
             l = 1
             for (j in 1:n[i]) {
                 for (k in j:n[i]) {
-                  if ((L_c[j, k] >= min(sqrt((mu_c[j] * (1 - mu_c[k]))/(mu_c[k] * 
-                    (1 - mu_c[j]))), sqrt((mu_c[k] * (1 - mu_c[j]))/(mu_c[j] * 
-                    (1 - mu_c[k]))))) | (L_c[j, k] <= max(-sqrt((mu_c[j] * 
-                    mu_c[k])/((1 - mu_c[j]) * (1 - mu_c[k]))), -sqrt(((1 - 
+                  if ((L_c[j, k] >= min(sqrt((mu_c[j] * (1 - mu_c[k]))/(mu_c[k] *
+                    (1 - mu_c[j]))), sqrt((mu_c[k] * (1 - mu_c[j]))/(mu_c[j] *
+                    (1 - mu_c[k]))))) | (L_c[j, k] <= max(-sqrt((mu_c[j] *
+                    mu_c[k])/((1 - mu_c[j]) * (1 - mu_c[k]))), -sqrt(((1 -
                     mu_c[j]) * (1 - mu_c[k]))/(mu_c[j] * mu_c[k]))))) {
                     rangeflag = 1
                     if (printrange) {
-                      warning(cat("Range Violation Detected for Cluster", 
+                      warning(cat("Range Violation Detected for Cluster",
                         i, "and Pair", j, k, "\n"))
                     }
                     break
@@ -557,7 +557,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
             # Check for positive definite of B
             if (min(eigen(B)$values) <= 0) {
                 NPSDFLAG = 1
-                stop(paste("Var(Y) of Cluster", i, "is not Positive-Definite;", 
+                stop(paste("Var(Y) of Cluster", i, "is not Positive-Definite;",
                   "Joint Distribution Does Not Exist and Program terminates"))
             }
 
@@ -585,10 +585,10 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
         }
 
         inustar[1:p, 1:p] = ginv(Ustar[1:p, 1:p])
-        inustar[(p + 1):(p + q), (p + 1):(p + q)] = ginv(Ustar[(p + 
+        inustar[(p + 1):(p + q), (p + 1):(p + q)] = ginv(Ustar[(p +
             1):(p + q), (p + 1):(p + q)])
-        inustar[(p + 1):(p + q), 1:p] = inustar[(p + 1):(p + q), 
-            (p + 1):(p + q)] %*% Ustar[(p + 1):(p + q), 1:p] %*% 
+        inustar[(p + 1):(p + q), 1:p] = inustar[(p + 1):(p + q),
+            (p + 1):(p + q)] %*% Ustar[(p + 1):(p + q), 1:p] %*%
             inustar[1:p, 1:p]
 
         # the minus sign above is crucial, esp. for large correlation;
@@ -596,7 +596,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
 
         # calculating adjustment factor for BC3
         for (i in 1:length(n)) {
-            Hi = diag(1/sqrt(1 - pmin(0.75, c(diag(Ustar_c_array[, 
+            Hi = diag(1/sqrt(1 - pmin(0.75, c(diag(Ustar_c_array[,
                 , i] %*% inustar)))))
             UUbc3 = UUbc3 + Hi %*% UUtran_c_array[, , i] %*% Hi
         }
@@ -632,8 +632,8 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
             ROBFLAG = 1
         }
 
-        return(list(robust = robust, naive = naive, varMD = varMD, 
-            varKC = varKC, varFG = varFG, rangeflag = rangeflag, 
+        return(list(robust = robust, naive = naive, varMD = varMD,
+            varKC = varKC, varFG = varFG, rangeflag = rangeflag,
             ROBFLAG = ROBFLAG, NPSDFLAG = NPSDFLAG, NPSDADJFLAG = NPSDADJFLAG))
     }
 
@@ -661,7 +661,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
     # convergence converge: did the algorithm converge (0 = no, 1 =
     # yes)
 
-    FITPRENTICE = function(y, X, m, n, maxiter, epsilon, SINGFLAG, 
+    FITPRENTICE = function(y, X, m, n, maxiter, epsilon, SINGFLAG,
         ROBFLAG, NPSDFLAG, NPSDADJFLAG) {
         p = ncol(X)
         converge = 0
@@ -676,14 +676,14 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
         deltaalp = rep(2 * epsilon, q)
 
         niter = 1
-        while ((niter <= maxiter) & (max(abs(c(delta, deltaalp))) > 
+        while ((niter <= maxiter) & (max(abs(c(delta, deltaalp))) >
             epsilon)) {
             SINGFLAG = 0
             NPSDFLAG = 0
             NPSDADJFLAG = 0
             Ustarold = Ustar
             alphaold = alpha
-            SCORE_RES = SCORE(Ustarold, beta, alpha, y, X, m, n, 
+            SCORE_RES = SCORE(Ustarold, beta, alpha, y, X, m, n,
                 p, q, NPSDFLAG, NPSDADJFLAG)
             U = SCORE_RES$U
             UUtran = SCORE_RES$UUtran
@@ -711,7 +711,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
         Ustarold = Ustar
 
         # inference
-        MAKEVAR_RES = MAKEVAR(Ustarold, beta, alpha, y, X, m, n, 
+        MAKEVAR_RES = MAKEVAR(Ustarold, beta, alpha, y, X, m, n,
             p, q, ROBFLAG, NPSDFLAG, NPSDADJFLAG)
         robust = MAKEVAR_RES$robust
         naive = MAKEVAR_RES$naive
@@ -723,9 +723,9 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
         NPSDFLAG = MAKEVAR_RES$NPSDFLAG
         NPSDADJFLAG = MAKEVAR_RES$NPSDADJFLAG
 
-        return(list(beta = beta, alpha = alpha, robust = robust, 
-            naive = naive, varMD = varMD, varKC = varKC, varFG = varFG, 
-            niter = niter, converge = converge, SINGFLAG = SINGFLAG, 
+        return(list(beta = beta, alpha = alpha, robust = robust,
+            naive = naive, varMD = varMD, varKC = varKC, varFG = varFG,
+            niter = niter, converge = converge, SINGFLAG = SINGFLAG,
             ROBFLAG = ROBFLAG, NPSDFLAG = NPSDFLAG, NPSDADJFLAG = NPSDADJFLAG))
     }
 
@@ -739,7 +739,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
     # convergence n: vector of cluster sample sizes
 
     # OUTPUT to screen
-    RESULTS = function(beta, alpha, robust, naive, varMD, varKC, 
+    RESULTS = function(beta, alpha, robust, naive, varMD, varKC,
         varFG, niter, n) {
         p = length(beta)
         q = length(alpha)
@@ -748,7 +748,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
         # ** the next message is structure specific **
         corstr = "Exponential decay"
 
-        
+
         beta_numbers = as.matrix(seq(1:p)) - 1
         bSE = sqrt(diag(naive))
         bSEBC0 = sqrt(diag(robust[1:p, 1:p]))
@@ -757,22 +757,22 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
         bSEBC3 = sqrt(diag(varFG[1:p, 1:p]))
 
         alpha_numbers = as.matrix(seq(1:q)) - 1
-        aSEBC0 = sqrt(diag(robust[(p + 1):(p + q), (p + 1):(p + 
+        aSEBC0 = sqrt(diag(robust[(p + 1):(p + q), (p + 1):(p +
             q)]))
         aSEBC1 = sqrt(diag(varKC[(p + 1):(p + q), (p + 1):(p + q)]))
         aSEBC2 = sqrt(diag(varMD[(p + 1):(p + q), (p + 1):(p + q)]))
         aSEBC3 = sqrt(diag(varFG[(p + 1):(p + q), (p + 1):(p + q)]))
 
-        outbeta = cbind(beta_numbers, beta, bSE, bSEBC0, bSEBC1, 
+        outbeta = cbind(beta_numbers, beta, bSE, bSEBC0, bSEBC1,
             bSEBC2, bSEBC3)
-        outalpha = cbind(alpha_numbers, alpha, aSEBC0, aSEBC1, aSEBC2, 
+        outalpha = cbind(alpha_numbers, alpha, aSEBC0, aSEBC1, aSEBC2,
             aSEBC3)
-        colnames(outbeta) = c("Beta", "Estimate", "MB-stderr", "BC0-stderr", 
+        colnames(outbeta) = c("Beta", "Estimate", "MB-stderr", "BC0-stderr",
             "BC1-stderr", "BC2-stderr", "BC3-stderr")
-        colnames(outalpha) = c("Alpha", "Estimate", "BC0-stderr", 
+        colnames(outalpha) = c("Alpha", "Estimate", "BC0-stderr",
             "BC1-stderr", "BC2-stderr", "BC3-stderr")
 
-        
+
         return(list(outbeta = outbeta, outalpha = outalpha))
     }
 
@@ -782,7 +782,6 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
     NPSDFLAG = 0
     NPSDADJFLAG = 0
 
-    # sort by id
     id1 = id[order(id)]
     y = y[order(id)]
     X = X[order(id), ]
@@ -791,7 +790,7 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
 
     n = as.vector(table(id))
     # Fit the GEE/MAEE algorithm
-    PRENTICE_RES = FITPRENTICE(y, X, m, n, maxiter, epsilon, SINGFLAG, 
+    PRENTICE_RES = FITPRENTICE(y, X, m, n, maxiter, epsilon, SINGFLAG,
         ROBFLAG, NPSDFLAG, NPSDADJFLAG)
     beta = PRENTICE_RES$beta
     alpha = PRENTICE_RES$alpha
@@ -818,10 +817,10 @@ cpgee_ed = function(y, X, id, m, family, maxiter, epsilon, printrange,
         stop("The algorithm did not converge")
     }
     if (converge == 1 & ROBFLAG == 0) {
-        result = RESULTS(beta, alpha, robust, naive, varMD, varKC, 
+        result = RESULTS(beta, alpha, robust, naive, varMD, varKC,
             varFG, niter, n)
-        outList = list(outbeta = result$outbeta, outalpha = result$outalpha, 
-            beta = beta, alpha = alpha, MB = naive, BC0 = robust, 
+        outList = list(outbeta = result$outbeta, outalpha = result$outalpha,
+            beta = beta, alpha = alpha, MB = naive, BC0 = robust,
             BC1 = varKC, BC2 = varMD, BC3 = varFG, niter = niter)
         class(outList) = "cpgeeSWD"
         return(outList)
