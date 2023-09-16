@@ -12,4 +12,5 @@
 #'@import rootSolve
 #'@importFrom stats binomial glm rbinom uniroot
 #'@importFrom stats qnorm
-NULL
+#' @keywords internal
+"_PACKAGE"
