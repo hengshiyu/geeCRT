@@ -46,27 +46,42 @@
 #' ### Example 1): simulated SW-CRT with smaller cluster-period sizes (5~10)
 #' ########################################################################
 #'
-#' sampleSWCRT = sampleSWCRTSmall
+#' sampleSWCRT <- sampleSWCRTSmall
 #'
 #' #############################################################
 #' ### cluster-period id, period, outcome, and design matrix ###
 #' #############################################################
 #'
 #' ### id, period, outcome
-#' id = sampleSWCRT$id; period =  sampleSWCRT$period; y =  sampleSWCRT$y_bin
-#' X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'treatment')])
+#' id <- sampleSWCRT$id
+#' period <- sampleSWCRT$period
+#' y <- sampleSWCRT$y_bin
+#' X <- as.matrix(sampleSWCRT[, c("period1", "period2", "period3", "period4", "treatment")])
 #'
-#' m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
-#' clp_mu<-tapply(y,list(id,period), FUN=mean); y_cp <- c(t(clp_mu))
+#' m <- as.matrix(table(id, period))
+#' n <- dim(m)[1]
+#' t <- dim(m)[2]
+#' clp_mu <- tapply(y, list(id, period), FUN = mean)
+#' y_cp <- c(t(clp_mu))
 #'
 #' ### design matrix for correlation parameters
-#' trt <- tapply(X[, t + 1], list(id, period), FUN=mean); trt <- c(t(trt))
+#' trt <- tapply(X[, t + 1], list(id, period), FUN = mean)
+#' trt <- c(t(trt))
 #'
-#' time <- tapply(period,list(id, period), FUN = mean); time <- c(t(time)); X_cp <- matrix(0, n * t, t)
+#' time <- tapply(period, list(id, period), FUN = mean)
+#' time <- c(t(time))
+#' X_cp <- matrix(0, n * t, t)
 #'
-#' s = 1
-#' for(i in 1:n){for(j in 1:t){X_cp[s, time[s]] <- 1; s = s + 1}}
-#' X_cp <- cbind(X_cp, trt); id_cp <- rep(1:n, each= t); m_cp <-  c(t(m))
+#' s <- 1
+#' for (i in 1:n) {
+#'     for (j in 1:t) {
+#'         X_cp[s, time[s]] <- 1
+#'         s <- s + 1
+#'     }
+#' }
+#' X_cp <- cbind(X_cp, trt)
+#' id_cp <- rep(1:n, each = t)
+#' m_cp <- c(t(m))
 #'
 #' #####################################################
 #' ### cluster-period matrix-adjusted estimating equations (MAEE)
@@ -74,21 +89,27 @@
 #' #####################################################
 #'
 #' # exchangeable
-#' est_maee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                          m = m_cp, corstr = 'exchangeable',
-#'                          alpadj = TRUE)
+#' est_maee_exc <- cpgeeSWD(
+#'     y = y_cp, X = X_cp, id = id_cp,
+#'     m = m_cp, corstr = "exchangeable",
+#'     alpadj = TRUE
+#' )
 #' print(est_maee_exc)
 #'
 #' # nested exchangeable
-#' est_maee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                          m = m_cp, corstr = 'nest_exch',
-#'                          alpadj = TRUE)
+#' est_maee_nex <- cpgeeSWD(
+#'     y = y_cp, X = X_cp, id = id_cp,
+#'     m = m_cp, corstr = "nest_exch",
+#'     alpadj = TRUE
+#' )
 #' print(est_maee_nex)
 #'
 #' # exponential decay
-#' est_maee_ed <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                         m = m_cp, corstr = 'exp_decay',
-#'                         alpadj = TRUE)
+#' est_maee_ed <- cpgeeSWD(
+#'     y = y_cp, X = X_cp, id = id_cp,
+#'     m = m_cp, corstr = "exp_decay",
+#'     alpadj = TRUE
+#' )
 #' print(est_maee_ed)
 #'
 #' #####################################################
@@ -97,48 +118,69 @@
 #' #####################################################
 #'
 #' # exchangeable
-#' est_uee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                         m = m_cp, corstr = 'exchangeable',
-#'                         alpadj = FALSE)
+#' est_uee_exc <- cpgeeSWD(
+#'     y = y_cp, X = X_cp, id = id_cp,
+#'     m = m_cp, corstr = "exchangeable",
+#'     alpadj = FALSE
+#' )
 #' print(est_uee_exc)
 #'
 #' # nested exchangeable
-#' est_uee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                         m = m_cp, corstr = 'nest_exch',
-#'                         alpadj = FALSE)
+#' est_uee_nex <- cpgeeSWD(
+#'     y = y_cp, X = X_cp, id = id_cp,
+#'     m = m_cp, corstr = "nest_exch",
+#'     alpadj = FALSE
+#' )
 #' print(est_uee_nex)
 #'
 #' # exponential decay
-#' est_uee_ed <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                        m = m_cp, corstr = 'exp_decay',
-#'                        alpadj = FALSE)
+#' est_uee_ed <- cpgeeSWD(
+#'     y = y_cp, X = X_cp, id = id_cp,
+#'     m = m_cp, corstr = "exp_decay",
+#'     alpadj = FALSE
+#' )
 #' print(est_uee_ed)
 #'
 #' ########################################################################
 #' ### Example 2): simulated SW-CRT with larger cluster-period sizes (20~30)
 #' ########################################################################
 #'
-#' sampleSWCRT = sampleSWCRTLarge
+#' sampleSWCRT <- sampleSWCRTLarge
 #'
 #' #############################################################
 #' ### cluster-period id, period, outcome, and design matrix ###
 #' #############################################################
 #'
 #' ### id, period, outcome
-#' id = sampleSWCRT$id; period =  sampleSWCRT$period; y =  sampleSWCRT$y_bin
-#' X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'period5', 'treatment')])
+#' id <- sampleSWCRT$id
+#' period <- sampleSWCRT$period
+#' y <- sampleSWCRT$y_bin
+#' X <- as.matrix(sampleSWCRT[, c("period1", "period2", "period3", "period4", "period5", "treatment")])
 #'
-#' m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
-#' clp_mu<-tapply(y,list(id,period), FUN=mean); y_cp <- c(t(clp_mu))
+#' m <- as.matrix(table(id, period))
+#' n <- dim(m)[1]
+#' t <- dim(m)[2]
+#' clp_mu <- tapply(y, list(id, period), FUN = mean)
+#' y_cp <- c(t(clp_mu))
 #'
 #' ### design matrix for correlation parameters
-#' trt <- tapply(X[, t + 1], list(id, period), FUN=mean); trt <- c(t(trt))
+#' trt <- tapply(X[, t + 1], list(id, period), FUN = mean)
+#' trt <- c(t(trt))
 #'
-#' time <- tapply(period,list(id, period), FUN = mean); time <- c(t(time)); X_cp <- matrix(0, n * t, t)
+#' time <- tapply(period, list(id, period), FUN = mean)
+#' time <- c(t(time))
+#' X_cp <- matrix(0, n * t, t)
 #'
-#' s = 1
-#' for(i in 1:n){for(j in 1:t){X_cp[s, time[s]] <- 1; s = s + 1}}
-#' X_cp <- cbind(X_cp, trt); id_cp <- rep(1:n, each= t); m_cp <-  c(t(m))
+#' s <- 1
+#' for (i in 1:n) {
+#'     for (j in 1:t) {
+#'         X_cp[s, time[s]] <- 1
+#'         s <- s + 1
+#'     }
+#' }
+#' X_cp <- cbind(X_cp, trt)
+#' id_cp <- rep(1:n, each = t)
+#' m_cp <- c(t(m))
 #'
 #' #####################################################
 #' ### cluster-period matrix-adjusted estimating equations (MAEE)
@@ -146,21 +188,27 @@
 #' #####################################################
 #'
 #' # exchangeable
-#' est_maee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                          m = m_cp, corstr = 'exchangeable',
-#'                          alpadj = TRUE)
+#' est_maee_exc <- cpgeeSWD(
+#'     y = y_cp, X = X_cp, id = id_cp,
+#'     m = m_cp, corstr = "exchangeable",
+#'     alpadj = TRUE
+#' )
 #' print(est_maee_exc)
 #'
 #' # nested exchangeable
-#' est_maee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                          m = m_cp, corstr = 'nest_exch',
-#'                          alpadj = TRUE)
+#' est_maee_nex <- cpgeeSWD(
+#'     y = y_cp, X = X_cp, id = id_cp,
+#'     m = m_cp, corstr = "nest_exch",
+#'     alpadj = TRUE
+#' )
 #' print(est_maee_nex)
 #'
 #' # exponential decay
-#' est_maee_ed <- cpgeeSWD(y  = y_cp, X = X_cp, id = id_cp,
-#'                         m = m_cp, corstr = 'exp_decay',
-#'                         alpadj = TRUE)
+#' est_maee_ed <- cpgeeSWD(
+#'     y = y_cp, X = X_cp, id = id_cp,
+#'     m = m_cp, corstr = "exp_decay",
+#'     alpadj = TRUE
+#' )
 #' print(est_maee_ed)
 #'
 #' #####################################################
@@ -169,25 +217,28 @@
 #' #####################################################
 #'
 #' # exchangeable
-#' est_uee_exc <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                         m = m_cp, corstr = 'exchangeable',
-#'                         alpadj = FALSE)
+#' est_uee_exc <- cpgeeSWD(
+#'     y = y_cp, X = X_cp, id = id_cp,
+#'     m = m_cp, corstr = "exchangeable",
+#'     alpadj = FALSE
+#' )
 #' print(est_uee_exc)
 #'
 #' # nested exchangeable
-#' est_uee_nex <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                         m = m_cp, corstr = 'nest_exch',
-#'                         alpadj = FALSE)
+#' est_uee_nex <- cpgeeSWD(
+#'     y = y_cp, X = X_cp, id = id_cp,
+#'     m = m_cp, corstr = "nest_exch",
+#'     alpadj = FALSE
+#' )
 #' print(est_uee_nex)
 #'
 #' # exponential decay
-#' est_uee_ed <- cpgeeSWD(y = y_cp, X = X_cp, id = id_cp,
-#'                        m = m_cp, corstr = 'exp_decay',
-#'                        alpadj = FALSE)
+#' est_uee_ed <- cpgeeSWD(
+#'     y = y_cp, X = X_cp, id = id_cp,
+#'     m = m_cp, corstr = "exp_decay",
+#'     alpadj = FALSE
+#' )
 #' print(est_uee_ed)
-#'
-#'
-#'
 #'
 #' @return \code{outbeta} estimates of marginal mean model parameters and standard errors with different finite-sample bias corrections.
 #' The current version supports model-based standard error (MB), the sandwich standard error (BC0) extending Zhao and Prentice (2001),
@@ -212,24 +263,23 @@
 #' @return \code{niter} number of iterations used in the Fisher scoring updates for model fitting
 
 
-cpgeeSWD = function(y, X, id, m, corstr, family = "binomial", maxiter = 500,
+cpgeeSWD <- function(
+    y, X, id, m, corstr, family = "binomial", maxiter = 500,
     epsilon = 0.001, printrange = TRUE, alpadj = FALSE, rho.init = NULL) {
-
     if (corstr == "exchangeable") {
-
-        cpgee_exc(y, X, id, m, family, maxiter, epsilon, printrange,
-            alpadj)
-
+        cpgee_exc(
+            y, X, id, m, family, maxiter, epsilon, printrange,
+            alpadj
+        )
     } else if (corstr == "nest_exch") {
-
-        cpgee_nex(y, X, id, m, family, maxiter, epsilon, printrange,
-            alpadj)
-
+        cpgee_nex(
+            y, X, id, m, family, maxiter, epsilon, printrange,
+            alpadj
+        )
     } else if (corstr == "exp_decay") {
-
-        cpgee_ed(y, X, id, m, family, maxiter, epsilon, printrange,
-            alpadj, rho.init)
-
+        cpgee_ed(
+            y, X, id, m, family, maxiter, epsilon, printrange,
+            alpadj, rho.init
+        )
     }
-
 }

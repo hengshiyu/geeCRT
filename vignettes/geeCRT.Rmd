@@ -357,10 +357,191 @@ est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin,
 print(est_uee_ind_bin)
 ```
 
+## `geemaee()` examples: matrix-adjusted GEE for estimating the mean and correlation parameters in SW-CRTs when some clusters had only 1 observation 
+We can  use the `geemaee()` function for SW-CRTs when some clusters had only one observation. 
+
+### Simulated dataset with 12 clusters and small cluster sizes
+```{r geemaee_small_cluOneObsCount_swcrt, fig.keep="all", fig.width = 7, fig.height=4}
+## let the cluster 5 and cluster 10 be with only 1 observation 
+sampleSWCRT = sampleSWCRTSmall[sampleSWCRTSmall$id != 5 & sampleSWCRTSmall$id != 10, ]
+sampleSWCRT5  = sampleSWCRTSmall[sampleSWCRTSmall$id == 5, ][1, ]
+sampleSWCRT10  = sampleSWCRTSmall[sampleSWCRTSmall$id == 10, ][1, ]
+sampleSWCRT = rbind(sampleSWCRT, sampleSWCRT5)
+sampleSWCRT = rbind(sampleSWCRT, sampleSWCRT10)
+sampleSWCRT = sampleSWCRT[order(sampleSWCRT$id), ]
+
+id = sampleSWCRT$id; period = sampleSWCRT$period;
+X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'treatment')])
+m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
+
+## function to generate Z matrix (ignore the clusters with only 1 observation)
+createzCrossSecIgnoreOneObsCount = function (m) {
+  
+  Z = NULL
+  n = dim(m)[1]
+  
+  for (i in 1:n) {
+    
+    alpha_0 = 1; alpha_1 = 2; 
+    n_i = c(m[i, ]); 
+    n_i = c(n_i[n_i>0])
+    n_length = length(n_i)
+    POS = matrix(alpha_1, sum(n_i), sum(n_i))
+    loc1 = 0; loc2 = 0
+    
+    for (s in 1:n_length) {
+      
+      n_t = n_i[s]; loc1 = loc2 + 1; loc2 = loc1 + n_t - 1
+      
+      for (k in loc1:loc2) {
+        
+        for (j in loc1:loc2) {
+          
+          if (k != j) { POS[k, j] = alpha_0 } else { POS[k, j] = 0 }}}}
+    
+    zrow = diag(2); z_c = NULL
+    
+    if (sum(n_i) > 1) {
+      for (j in 1:(sum(n_i) - 1)) { 
+        
+        for (k in (j + 1):sum(n_i)) {
+          
+          z_c = rbind(z_c, zrow[POS[j,k],])
+          
+        }}
+    }
+    
+    Z = rbind(Z, z_c) }
+  
+  return(Z)}
+Z = createzCrossSecIgnoreOneObsCount(m) 
+
+### (1) Matrix-adjusted estimating equations and GEE 
+### on continuous outcome with nested exchangeable correlation structure
+ 
+### MAEE
+est_maee_ind_con = geemaee(y = sampleSWCRT$y_con, 
+                           X = X, id  = id, Z = Z, 
+                           family = "continuous", 
+                           maxiter = 500, epsilon = 0.001, 
+                           printrange = TRUE, alpadj = TRUE, 
+                           shrink = "ALPHA", makevone = FALSE)
+
+### GEE
+est_uee_ind_con = geemaee(y = sampleSWCRT$y_con, 
+                          X = X, id = id, Z = Z, 
+                          family = "continuous", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
+
+### (2) Matrix-adjusted estimating equations and GEE 
+### on binary outcome with nested exchangeable correlation structure
+
+### MAEE
+est_maee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                           X = X, id = id, Z = Z, 
+                           family = "binomial", 
+                           maxiter = 500, epsilon = 0.001, 
+                           printrange = TRUE, alpadj = TRUE, 
+                           shrink = "ALPHA", makevone = FALSE)
+
+### GEE
+est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                          X = X, id = id, Z = Z, 
+                          family = "binomial", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
+```
+
+Then we have the following output: 
+```{r set-options3, echo=FALSE, fig.keep="all", fig.width = 7, fig.height=4}
+options(width = 100)
+ 
+```
+
+```{r , fig.keep="all", fig.width = 7, fig.height=4}
+ # MAEE for continuous outcome
+ print(est_maee_ind_con)
+
+ # GEE for continuous outcome
+ print(est_uee_ind_con)
+ 
+ # MAEE for binary outcome
+ print(est_maee_ind_bin)
+ 
+ # GEE for binary outcome
+ print(est_uee_ind_bin)
+
+```
+
+
+### Simulated dataset with 12 clusters and large cluster sizes
+
+```{r geemaee_large_cluOneObsCount_swcrt, fig.keep="all", fig.width = 7, fig.height=4}
+
+## let the cluster 2, 3 be with only 1 observation 
+sampleSWCRT = sampleSWCRTLarge[sampleSWCRTLarge$id != 2 & sampleSWCRTLarge$id != 3, ]
+sampleSWCRT2  = sampleSWCRTLarge[sampleSWCRTLarge$id == 2 & sampleSWCRTLarge$period == 4, ][1, ]
+sampleSWCRT3  = sampleSWCRTLarge[sampleSWCRTLarge$id == 3 & sampleSWCRTLarge$period == 5, ][1, ]
+sampleSWCRT = rbind(sampleSWCRT, sampleSWCRT2)
+sampleSWCRT = rbind(sampleSWCRT, sampleSWCRT3)
+sampleSWCRT = sampleSWCRT[order(sampleSWCRT$id, sampleSWCRT$period), ]
+
+id = sampleSWCRT$id; period = sampleSWCRT$period;
+X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'treatment')])
+m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]
+Z = createzCrossSecIgnoreOneObsCount(m) 
+
+### (1) Matrix-adjusted estimating equations and GEE 
+### on continous outcome with nested exchangeable correlation structure
+ 
+### MAEE
+est_maee_ind_con = geemaee(y = sampleSWCRT$y_con, 
+                           X = X, id  = id, Z = Z, 
+                           family = "continuous", 
+                           maxiter = 500, epsilon = 0.001, 
+                           printrange = TRUE, alpadj = TRUE, 
+                           shrink = "ALPHA", makevone = FALSE)
+print(est_maee_ind_con)
+
+### GEE
+est_uee_ind_con = geemaee(y = sampleSWCRT$y_con, 
+                          X = X, id = id, Z = Z, 
+                          family = "continuous", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
+print(est_uee_ind_con)
+
+### (2) Matrix-adjusted estimating equations and GEE 
+### on binary outcome with nested exchangeable correlation structure
+
+### MAEE
+est_maee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                           X = X, id = id, Z = Z, 
+                           family = "binomial", 
+                           maxiter = 500, epsilon = 0.001, 
+                           printrange = TRUE, alpadj = TRUE, 
+                           shrink = "ALPHA", makevone = FALSE)
+print(est_maee_ind_bin)
+
+### GEE
+est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin, 
+                          X = X, id = id, Z = Z, 
+                          family = "binomial", 
+                          maxiter = 500, epsilon = 0.001, 
+                          printrange = TRUE, alpadj = FALSE, 
+                          shrink = "ALPHA", makevone = FALSE)
+print(est_uee_ind_bin)
+```
+
 
 ## `geemaee()` examples: matrix-adjusted GEE for estimating the mean and correlation parameters in general CRTs
 
 We can also use the `geemaee()` function for general CRTs with only one time period. We need to specify a single column of 1's for the `Z` matrix. 
+
 
 ### Simulated dataset with 12 clusters and small cluster sizes
 
@@ -418,7 +599,7 @@ est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin,
 
 
 Then we have the following output: 
-```{r set-options3, echo=FALSE, fig.keep="all", fig.width = 7, fig.height=4}
+```{r set-options4, echo=FALSE, fig.keep="all", fig.width = 7, fig.height=4}
 options(width = 100)
  
 ```

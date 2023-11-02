@@ -1,5 +1,5 @@
 #' The print format for geemaee output
-#' 
+#'
 #' @description The print format for geemaee output
 #' @param x The object of geemaee output
 #' @param ... further arguments passed to or from other methods
@@ -9,17 +9,17 @@
 #'
 #'
 print.geemaee <- function(x, ...) {
+    p <- length(x$beta)
+    q <- length(x$alpha)
+    niter <- x$niter
+    outbeta <- x$outbeta
+    outalpha <- x$outalpha
 
-    p = length(x$beta)
-    q = length(x$alpha)
-    niter = x$niter
-    outbeta = x$outbeta
-    outalpha = x$outalpha
+    cat(
+        "GEE for correlated data", "\n", "Number of Iterations:",
+        niter, "\n"
+    )
 
-    cat("GEE for correlated Gaussian data", "\n", "Number of Iterations:", 
-        niter, "\n")
-
-    
     cat("Results for marginal mean parameters \n")
     print(outbeta)
     cat("\n")
@@ -28,4 +28,3 @@ print.geemaee <- function(x, ...) {
     print(outalpha)
     cat("\n")
 }
-

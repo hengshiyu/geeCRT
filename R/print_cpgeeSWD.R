@@ -8,18 +8,19 @@
 #'
 #'
 print.cpgeeSWD <- function(x, ...) {
+    p <- length(x$beta)
+    q <- length(x$alpha)
 
-    p = length(x$beta)
-    q = length(x$alpha)
+    niter <- x$niter
+    outbeta <- x$outbeta
+    outalpha <- x$outalpha
 
-    niter = x$niter
-    outbeta = x$outbeta
-    outalpha = x$outalpha
+    cat(
+        "GEE and MAEE for Cluster-Period Summaries", "\n", "Number of Iterations:",
+        niter, "\n"
+    )
 
-    cat("GEE and MAEE for Cluster-Period Summaries", "\n", "Number of Iterations:", 
-        niter, "\n")
 
-    
     cat("Results for marginal mean parameters \n")
     print(outbeta)
     cat("\n")
@@ -28,4 +29,3 @@ print.cpgeeSWD <- function(x, ...) {
     print(outalpha)
     cat("\n")
 }
-

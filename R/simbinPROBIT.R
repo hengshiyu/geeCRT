@@ -24,63 +24,92 @@
 #' # Simulate 2 clusters, 3 periods and cluster-period size of 5 #######
 #' #####################################################################
 #'
-#' t = 3; n = 2; m = 5
+#' t <- 3
+#' n <- 2
+#' m <- 5
 #'
 #' # means of cluster 1
-#' u_c1 = c(0.4, 0.3, 0.2)
+#' u_c1 <- c(0.4, 0.3, 0.2)
 #' u1 <- rep(u_c1, c(rep(m, t)))
 #' # means of cluster 2
-#' u_c2 = c(0.35, 0.25, 0.2)
+#' u_c2 <- c(0.35, 0.25, 0.2)
 #' u2 <- rep(u_c2, c(rep(m, t)))
 #'
 #' # List of mean vectors
-#' mu = list()
-#' mu[[1]] = u1; mu[[2]] = u2;
-#'
+#' mu <- list()
+#' mu[[1]] <- u1
+#' mu[[2]] <- u2
 #' # List of correlation matrices
 #'
 #' ## correlation parameters
-#' alpha0 = 0.03; alpha1 = 0.015; rho = 0.8
+#' alpha0 <- 0.03
+#' alpha1 <- 0.015
+#' rho <- 0.8
 #'
 #' ## (1) exchangeable
-#' Sigma = list()
-#' Sigma[[1]] = diag(m * t) * ( 1 - alpha1) + matrix(alpha1, m * t,  m * t )
-#' Sigma[[2]] = diag(m * t) * ( 1 - alpha1) + matrix(alpha1, m * t,  m * t )
-#' y_exc = simbinPROBIT(mu = mu, Sigma = Sigma, n = n)
+#' Sigma <- list()
+#' Sigma[[1]] <- diag(m * t) * (1 - alpha1) + matrix(alpha1, m * t, m * t)
+#' Sigma[[2]] <- diag(m * t) * (1 - alpha1) + matrix(alpha1, m * t, m * t)
+#' y_exc <- simbinPROBIT(mu = mu, Sigma = Sigma, n = n)
 #'
 #' ## (2) nested exchangeable
-#' Sigma = list()
-#' cor_matrix = matrix(alpha1, m * t,  m * t)
-#' loc1 = 0; loc2 = 0
-#' for(t in 1:t){loc1 = loc2 + 1; loc2 = loc1 + m - 1
-#'  for(i in loc1:loc2){for(j in loc1:loc2){
-#'         if(i != j){cor_matrix[i, j] = alpha0}else{cor_matrix[i, j] = 1}}}}
+#' Sigma <- list()
+#' cor_matrix <- matrix(alpha1, m * t, m * t)
+#' loc1 <- 0
+#' loc2 <- 0
+#' for (t in 1:t) {
+#'     loc1 <- loc2 + 1
+#'     loc2 <- loc1 + m - 1
+#'     for (i in loc1:loc2) {
+#'         for (j in loc1:loc2) {
+#'             if (i != j) {
+#'                 cor_matrix[i, j] <- alpha0
+#'             } else {
+#'                 cor_matrix[i, j] <- 1
+#'             }
+#'         }
+#'     }
+#' }
 #'
-#' Sigma[[1]] = cor_matrix; Sigma[[2]] = cor_matrix
-#' y_nex = simbinPROBIT(mu = mu, Sigma = Sigma, n = n)
+#' Sigma[[1]] <- cor_matrix
+#' Sigma[[2]] <- cor_matrix
+#' y_nex <- simbinPROBIT(mu = mu, Sigma = Sigma, n = n)
 #'
 #' ## (3) exponential decay
 #'
-#' Sigma = list()
+#' Sigma <- list()
 #'
 #' ### function to find the period of the ith index
-#' region_ij<-function(points, i){diff = i - points
-#'     for(h in 1:(length(diff) - 1)){if(diff[h] > 0 & diff[h + 1] <= 0){find <- h}}
-#'  return(find)}
+#' region_ij <- function(points, i) {
+#'     diff <- i - points
+#'     for (h in 1:(length(diff) - 1)) {
+#'         if (diff[h] > 0 & diff[h + 1] <= 0) {
+#'             find <- h
+#'         }
+#'     }
+#'     return(find)
+#' }
 #'
-#' cor_matrix = matrix(0,  m * t,  m * t)
-#' useage_m = cumsum(m * t); useage_m = c(0, useage_m)
+#' cor_matrix <- matrix(0, m * t, m * t)
+#' useage_m <- cumsum(m * t)
+#' useage_m <- c(0, useage_m)
 #'
-#' for(i in 1:(m * t)){i_reg = region_ij(useage_m, i)
-#'      for(j in 1:(m * t)){j_reg = region_ij(useage_m, j)
-#'          if(i_reg == j_reg & i != j){
-#'              cor_matrix[i, j] = alpha0}else if(i == j){cor_matrix[i, j] = 1
-#' }else if(i_reg != j_reg){cor_matrix[i,j] = alpha0 * (rho^(abs(i_reg - j_reg)))}}}
-#'  Sigma[[1]] = cor_matrix; Sigma[[2]] = cor_matrix
-#'  y_ed = simbinPROBIT(mu = mu, Sigma = Sigma, n = n)
-#'
-#'
-#'
+#' for (i in 1:(m * t)) {
+#'     i_reg <- region_ij(useage_m, i)
+#'     for (j in 1:(m * t)) {
+#'         j_reg <- region_ij(useage_m, j)
+#'         if (i_reg == j_reg & i != j) {
+#'             cor_matrix[i, j] <- alpha0
+#'         } else if (i == j) {
+#'             cor_matrix[i, j] <- 1
+#'         } else if (i_reg != j_reg) {
+#'             cor_matrix[i, j] <- alpha0 * (rho^(abs(i_reg - j_reg)))
+#'         }
+#'     }
+#' }
+#' Sigma[[1]] <- cor_matrix
+#' Sigma[[2]] <- cor_matrix
+#' y_ed <- simbinPROBIT(mu = mu, Sigma = Sigma, n = n)
 #'
 #' @return \code{y} a vector of simulated binary outcomes for \code{n} clusters.
 
@@ -88,37 +117,37 @@
 
 
 simbinPROBIT <- function(mu, Sigma, n = 1) {
-
-    
     # compute the orginal correlation
-    tetra = function(pj, pk, alpha) {
-        rhs = alpha * sqrt(pj * (1 - pj)) * sqrt(pk * (1 - pk)) + 
+    tetra <- function(pj, pk, alpha) {
+        rhs <- alpha * sqrt(pj * (1 - pj)) * sqrt(pk * (1 - pk)) +
             pj * pk
-        f0 = function(rho) {
-            sigma = (1 - rho) * diag(2) + rho * matrix(1, 2, 2)
-            lhs = pmvnorm(lower = -Inf, upper = c(qnorm(pj), qnorm(pk)), 
-                mean = c(0, 0), sigma = sigma)
+        f0 <- function(rho) {
+            sigma <- (1 - rho) * diag(2) + rho * matrix(1, 2, 2)
+            lhs <- pmvnorm(
+                lower = -Inf, upper = c(qnorm(pj), qnorm(pk)),
+                mean = c(0, 0), sigma = sigma
+            )
             return(lhs[1] - rhs)
         }
-        res = multiroot(f0, start = alpha)
+        res <- multiroot(f0, start = alpha)
         return(res$root)
     }
 
     createR <- function(u, r) {
-        m = length(u)
+        m <- length(u)
         R <- matrix(0, m, m)
         for (j in 1:(m - 1)) {
             for (k in j:m) {
-                rhojk = tetra(u[j], u[k], r[i, j])
+                rhojk <- tetra(u[j], u[k], r[i, j])
                 R[i, j] <- rhojk
             }
         }
-        R[lower.tri(R)] = t(R)[lower.tri(R)]
-        diag(R) = 1
+        R[lower.tri(R)] <- t(R)[lower.tri(R)]
+        diag(R) <- 1
         return(R)
     }
 
-    
+
     # r[1:n, 1:n] is the corr mtx u[1:n] is the mean of a binary
     # vector checks that pairwise corrs are in-range for the given
     # u[] only upper half of r[,] is checked.  return 0 if ok return
@@ -129,10 +158,12 @@ simbinPROBIT <- function(mu, Sigma, n = 1) {
         for (i in 1:(n - 1)) {
             for (j in (i + 1):n) {
                 uij <- u[i] * u[j] + r[i, j] * s[i] * s[j]
-                ok <- ((uij <= min(u[i], u[j])) & (uij >= max(0, 
-                  u[i] + u[j] - 1)))
+                ok <- ((uij <= min(u[i], u[j])) & (uij >= max(
+                    0,
+                    u[i] + u[j] - 1
+                )))
                 if (!ok) {
-                  return(1)
+                    return(1)
                 }
             }
         }
@@ -140,52 +171,48 @@ simbinPROBIT <- function(mu, Sigma, n = 1) {
     }
 
     if (is.null(n)) {
-
-        n = 1
+        n <- 1
 
         if (!is.list(mu)) {
-            meanList = list()
-            meanList[[1]] = mu
+            meanList <- list()
+            meanList[[1]] <- mu
         } else {
-            meanList = mu
+            meanList <- mu
         }
 
         if (!is.list(Sigma)) {
-            corList = list()
-            corList[[1]] = Sigma
+            corList <- list()
+            corList[[1]] <- Sigma
         } else {
-            corList = Sigma
+            corList <- Sigma
         }
-
-        
     } else if (n == 1) {
-        n = 1
+        n <- 1
 
         if (!is.list(mu)) {
-            meanList = list()
-            meanList[[1]] = mu
+            meanList <- list()
+            meanList[[1]] <- mu
         } else {
-            meanList = mu
+            meanList <- mu
         }
 
         if (!is.list(Sigma)) {
-            corList = list()
-            corList[[1]] = Sigma
+            corList <- list()
+            corList[[1]] <- Sigma
         } else {
-            corList = Sigma
+            corList <- Sigma
         }
-
     } else {
-        meanList = mu
-        corList = Sigma
+        meanList <- mu
+        corList <- Sigma
     }
 
     # Module to simulate individual outcomes
     y <- NULL
     for (i in 1:n) {
         # simulate outcome
-        u = meanList[[i]]
-        r = corList[[i]]
+        u <- meanList[[i]]
+        r <- corList[[i]]
         oor <- chkbinc(r, u)
         if (oor) {
             stop("ERROR: Correlation out of range for given mean")
@@ -194,14 +221,9 @@ simbinPROBIT <- function(mu, Sigma, n = 1) {
         Rstar <- createR(u, r)
         ystar <- rmvnorm(1, u, Rstar)
         ycut <- qnorm(u)
-        y <- c(y, as.numeric(ystar <= ycut))  
+        y <- c(y, as.numeric(ystar <= ycut))
         # simulate data matrix
     }
 
     return(y)
 }
-
-
-
-
-

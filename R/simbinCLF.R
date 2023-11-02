@@ -24,67 +24,96 @@
 #' # Simulate 2 clusters, 3 periods and cluster-period size of 5 #######
 #' #####################################################################
 #'
-#' t = 3; n = 2; m = 5
+#' t <- 3
+#' n <- 2
+#' m <- 5
 #'
 #' # means of cluster 1
-#' u_c1 = c(0.4, 0.3, 0.2)
+#' u_c1 <- c(0.4, 0.3, 0.2)
 #' u1 <- rep(u_c1, c(rep(m, t)))
 #' # means of cluster 2
-#' u_c2 = c(0.35, 0.25, 0.2)
+#' u_c2 <- c(0.35, 0.25, 0.2)
 #' u2 <- rep(u_c2, c(rep(m, t)))
 #'
 #' # List of mean vectors
-#' mu = list()
-#' mu[[1]] = u1; mu[[2]] = u2;
-#'
+#' mu <- list()
+#' mu[[1]] <- u1
+#' mu[[2]] <- u2
 #' # List of correlation matrices
 #'
 #' ## correlation parameters
-#' alpha0 = 0.03; alpha1 = 0.015; rho = 0.8
+#' alpha0 <- 0.03
+#' alpha1 <- 0.015
+#' rho <- 0.8
 #'
 #' ## (1) exchangeable
-#' Sigma = list()
-#' Sigma[[1]] = diag(m * t) * ( 1 - alpha1) + matrix(alpha1, m * t,  m * t )
-#' Sigma[[2]] = diag(m * t) * ( 1 - alpha1) + matrix(alpha1, m * t,  m * t )
+#' Sigma <- list()
+#' Sigma[[1]] <- diag(m * t) * (1 - alpha1) + matrix(alpha1, m * t, m * t)
+#' Sigma[[2]] <- diag(m * t) * (1 - alpha1) + matrix(alpha1, m * t, m * t)
 #'
-#' y_exc = simbinCLF(mu = mu, Sigma = Sigma, n = n)
+#' y_exc <- simbinCLF(mu = mu, Sigma = Sigma, n = n)
 #'
 #' ## (2) nested exchangeable
-#' Sigma = list()
-#' cor_matrix = matrix(alpha1, m * t,  m * t)
-#' loc1 = 0; loc2 = 0
-#' for(t in 1:t){loc1 = loc2 + 1; loc2 = loc1 + m - 1
-#'  for(i in loc1:loc2){for(j in loc1:loc2){
-#'         if(i != j){cor_matrix[i, j] = alpha0}else{cor_matrix[i, j] = 1}}}}
+#' Sigma <- list()
+#' cor_matrix <- matrix(alpha1, m * t, m * t)
+#' loc1 <- 0
+#' loc2 <- 0
+#' for (t in 1:t) {
+#'     loc1 <- loc2 + 1
+#'     loc2 <- loc1 + m - 1
+#'     for (i in loc1:loc2) {
+#'         for (j in loc1:loc2) {
+#'             if (i != j) {
+#'                 cor_matrix[i, j] <- alpha0
+#'             } else {
+#'                 cor_matrix[i, j] <- 1
+#'             }
+#'         }
+#'     }
+#' }
 #'
-#' Sigma[[1]] = cor_matrix; Sigma[[2]] = cor_matrix
+#' Sigma[[1]] <- cor_matrix
+#' Sigma[[2]] <- cor_matrix
 #'
-#' y_nex = simbinCLF(mu = mu, Sigma = Sigma, n = n)
+#' y_nex <- simbinCLF(mu = mu, Sigma = Sigma, n = n)
 #'
 #' ## (3) exponential decay
 #'
-#' Sigma = list()
+#' Sigma <- list()
 #'
 #' ### function to find the period of the ith index
-#' region_ij<-function(points, i){diff = i - points
-#'     for(h in 1:(length(diff) - 1)){if(diff[h] > 0 & diff[h + 1] <= 0){find <- h}}
-#'  return(find)}
+#' region_ij <- function(points, i) {
+#'     diff <- i - points
+#'     for (h in 1:(length(diff) - 1)) {
+#'         if (diff[h] > 0 & diff[h + 1] <= 0) {
+#'             find <- h
+#'         }
+#'     }
+#'     return(find)
+#' }
 #'
-#' cor_matrix = matrix(0,  m * t,  m * t)
-#' useage_m = cumsum(m * t); useage_m = c(0, useage_m)
+#' cor_matrix <- matrix(0, m * t, m * t)
+#' useage_m <- cumsum(m * t)
+#' useage_m <- c(0, useage_m)
 #'
-#' for(i in 1:(m * t)){i_reg = region_ij(useage_m, i)
-#'      for(j in 1:(m * t)){j_reg = region_ij(useage_m, j)
-#'          if(i_reg == j_reg & i != j){
-#'              cor_matrix[i, j] = alpha0}else if(i == j){cor_matrix[i, j] = 1
-#' }else if(i_reg != j_reg){cor_matrix[i,j] = alpha0 * (rho^(abs(i_reg - j_reg)))}}}
+#' for (i in 1:(m * t)) {
+#'     i_reg <- region_ij(useage_m, i)
+#'     for (j in 1:(m * t)) {
+#'         j_reg <- region_ij(useage_m, j)
+#'         if (i_reg == j_reg & i != j) {
+#'             cor_matrix[i, j] <- alpha0
+#'         } else if (i == j) {
+#'             cor_matrix[i, j] <- 1
+#'         } else if (i_reg != j_reg) {
+#'             cor_matrix[i, j] <- alpha0 * (rho^(abs(i_reg - j_reg)))
+#'         }
+#'     }
+#' }
 #'
-#'  Sigma[[1]] = cor_matrix; Sigma[[2]] = cor_matrix
+#' Sigma[[1]] <- cor_matrix
+#' Sigma[[2]] <- cor_matrix
 #'
-#'  y_ed = simbinCLF(mu = mu, Sigma = Sigma, n = n)
-#'
-#'
-#'
+#' y_ed <- simbinCLF(mu = mu, Sigma = Sigma, n = n)
 #'
 #' @return \code{y} a vector of simulated binary outcomes for \code{n} clusters.
 
@@ -92,9 +121,6 @@
 
 
 simbinCLF <- function(mu, Sigma, n = 1) {
-
-    
-
     # a[1:n, 1:n] is the input covariance matrix of Y[1:n].  Returns
     # b[1:n,1:n] such that b[1:t-1, t] are the slopes for regression
     # of y[t] on y[1:t-1], for t=2:n.  Diagonals and lower half of
@@ -133,10 +159,12 @@ simbinCLF <- function(mu, Sigma, n = 1) {
         for (i in 1:(n - 1)) {
             for (j in (i + 1):n) {
                 uij <- u[i] * u[j] + r[i, j] * s[i] * s[j]
-                ok <- ((uij <= min(u[i], u[j])) & (uij >= max(0, 
-                  u[i] + u[j] - 1)))
+                ok <- ((uij <= min(u[i], u[j])) & (uij >= max(
+                    0,
+                    u[i] + u[j] - 1
+                )))
                 if (!ok) {
-                  return(1)
+                    return(1)
                 }
             }
         }
@@ -156,8 +184,8 @@ simbinCLF <- function(mu, Sigma, n = 1) {
         y[1] <- rbinom(1, 1, u[1])
         for (i in 2:n) {
             i1 <- i - 1
-            r <- y[1:i1] - u[1:i1]  # residuals
-            ci <- u[i] + sum(r * b[1:i1, i])  # cond.mean
+            r <- y[1:i1] - u[1:i1] # residuals
+            ci <- u[i] + sum(r * b[1:i1, i]) # cond.mean
             if (ci < 0 | ci > 1) {
                 stop(paste("mbslr1: ERROR:", ci))
                 return(-1)
@@ -168,54 +196,49 @@ simbinCLF <- function(mu, Sigma, n = 1) {
     }
 
     if (is.null(n)) {
-
-        n = 1
+        n <- 1
 
         if (!is.list(mu)) {
-            meanList = list()
-            meanList[[1]] = mu
+            meanList <- list()
+            meanList[[1]] <- mu
         } else {
-            meanList = mu
+            meanList <- mu
         }
 
         if (!is.list(Sigma)) {
-            corList = list()
-            corList[[1]] = Sigma
+            corList <- list()
+            corList[[1]] <- Sigma
         } else {
-            corList = Sigma
+            corList <- Sigma
         }
-
-        
     } else if (n == 1) {
-        n = 1
+        n <- 1
 
         if (!is.list(mu)) {
-            meanList = list()
-            meanList[[1]] = mu
+            meanList <- list()
+            meanList[[1]] <- mu
         } else {
-            meanList = mu
+            meanList <- mu
         }
 
         if (!is.list(Sigma)) {
-            corList = list()
-            corList[[1]] = Sigma
+            corList <- list()
+            corList[[1]] <- Sigma
         } else {
-            corList = Sigma
+            corList <- Sigma
         }
-
     } else {
-        meanList = mu
-        corList = Sigma
+        meanList <- mu
+        corList <- Sigma
     }
 
-    
+
 
     # Simulate correlated binary outcomes
     y <- NULL
     for (i in 1:n) {
-
-        r = corList[[i]]
-        u = meanList[[i]]
+        r <- corList[[i]]
+        u <- meanList[[i]]
 
         v <- cor2var(r, u)
         oor <- chkbinc(r, u)
@@ -227,8 +250,3 @@ simbinCLF <- function(mu, Sigma, n = 1) {
     }
     return(y)
 }
-
-
-
-
-

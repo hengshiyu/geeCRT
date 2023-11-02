@@ -1,8 +1,8 @@
 Package: geeCRT
 Type: Package
 Title: Bias-Corrected GEE for Cluster Randomized Trials
-Version: 1.1.0
-Date: 2023-03-07
+Version: 1.1.2
+Date: 2023-10-22
 Authors@R: c(person(given = "Hengshi", family = "Yu", role = c("aut", "cre"), 
              email="hengshi@umich.edu"), 
              person(given = "Fan", family = "Li", role ="aut", 

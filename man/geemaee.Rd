@@ -87,41 +87,62 @@ The technical details of the GEE and MAEE approach are provided in Preisser (200
 ### function to create the design matrix for correlation parameters
 ### under the nested exchangeable correlation structure
 #################################################################
-createzCrossSec = function (m) {
-      Z = NULL
-      n = dim(m)[1]
-      for (i in 1:n) {
-          alpha_0 = 1; alpha_1 = 2; n_i = c(m[i, ]); n_length = length(n_i)
-          POS = matrix(alpha_1, sum(n_i), sum(n_i))
-          loc1 = 0; loc2 = 0
-          for (s in 1:n_length) {
-              n_t = n_i[s]; loc1 = loc2 + 1; loc2 = loc1 + n_t - 1
-              for (k in loc1:loc2) {
-                  for (j in loc1:loc2) {
-                      if (k != j) {POS[k, j] = alpha_0} else {POS[k, j] = 0}}}}
-           zrow = diag(2); z_c = NULL
-           for (j in 1:(sum(n_i) - 1)) {
-               for (k in (j + 1):sum(n_i)) {z_c = rbind(z_c, zrow[POS[j,k],])}}
-           Z = rbind(Z, z_c)}
-      return(Z)}
+createzCrossSec <- function(m) {
+  Z <- NULL
+  n <- dim(m)[1]
+  for (i in 1:n) {
+    alpha_0 <- 1
+    alpha_1 <- 2
+    n_i <- c(m[i, ])
+    n_length <- length(n_i)
+    POS <- matrix(alpha_1, sum(n_i), sum(n_i))
+    loc1 <- 0
+    loc2 <- 0
+    for (s in 1:n_length) {
+      n_t <- n_i[s]
+      loc1 <- loc2 + 1
+      loc2 <- loc1 + n_t - 1
+      for (k in loc1:loc2) {
+        for (j in loc1:loc2) {
+          if (k != j) {
+            POS[k, j] <- alpha_0
+          } else {
+            POS[k, j] <- 0
+          }
+        }
+      }
+    }
+    zrow <- diag(2)
+    z_c <- NULL
+    for (j in 1:(sum(n_i) - 1)) {
+      for (k in (j + 1):sum(n_i)) {
+        z_c <- rbind(z_c, zrow[POS[j, k], ])
+      }
+    }
+    Z <- rbind(Z, z_c)
+  }
+  return(Z)
+}
 
 ########################################################################
 ### Example 1): simulated SW-CRT with smaller cluster-period sizes (5~10)
 ########################################################################
 
-sampleSWCRT = sampleSWCRTSmall
+sampleSWCRT <- sampleSWCRTSmall
 
 ###############################################################
 ### Individual-level id, period, outcome, and design matrix ###
 ###############################################################
 
-id = sampleSWCRT$id; period =  sampleSWCRT$period;
-X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'treatment')])
+id <- sampleSWCRT$id
+period <- sampleSWCRT$period
+X <- as.matrix(sampleSWCRT[, c("period1", "period2", "period3", "period4", "treatment")])
 
-m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]; 
-
+m <- as.matrix(table(id, period))
+n <- dim(m)[1]
+t <- dim(m)[2]
 ### design matrix for correlation parameters
-Z = createzCrossSec(m)
+Z <- createzCrossSec(m)
 
 ################################################################
 ### (1) Matrix-adjusted estimating equations and GEE
@@ -129,20 +150,24 @@ Z = createzCrossSec(m)
 ################################################################
 
 ### MAEE
-est_maee_ind_con = geemaee(y = sampleSWCRT$y_con, X = X, id = id,
-                           Z = Z, family = 'continuous',
-                           maxiter = 500, epsilon = 0.001,
-                           printrange = TRUE, alpadj = TRUE,
-                           shrink = 'ALPHA', makevone = FALSE)
+est_maee_ind_con <- geemaee(
+  y = sampleSWCRT$y_con, X = X, id = id,
+  Z = Z, family = "continuous",
+  maxiter = 500, epsilon = 0.001,
+  printrange = TRUE, alpadj = TRUE,
+  shrink = "ALPHA", makevone = FALSE
+)
 print(est_maee_ind_con)
 
 
 ### GEE
-est_uee_ind_con = geemaee(y = sampleSWCRT$y_con, X = X, id = id,
-                          Z = Z, family = 'continuous',
-                          maxiter = 500, epsilon = 0.001,
-                          printrange = TRUE, alpadj = FALSE,
-                          shrink = 'ALPHA', makevone = FALSE)
+est_uee_ind_con <- geemaee(
+  y = sampleSWCRT$y_con, X = X, id = id,
+  Z = Z, family = "continuous",
+  maxiter = 500, epsilon = 0.001,
+  printrange = TRUE, alpadj = FALSE,
+  shrink = "ALPHA", makevone = FALSE
+)
 print(est_uee_ind_con)
 
 
@@ -152,42 +177,47 @@ print(est_uee_ind_con)
 ###############################################################
 
 ### MAEE
-est_maee_ind_bin = geemaee(y = sampleSWCRT$y_bin, X = X, id = id,
-                           Z = Z, family = 'binomial',
-                           maxiter = 500, epsilon = 0.001,
-                           printrange = TRUE, alpadj = TRUE,
-                           shrink = 'ALPHA', makevone = FALSE)
+est_maee_ind_bin <- geemaee(
+  y = sampleSWCRT$y_bin, X = X, id = id,
+  Z = Z, family = "binomial",
+  maxiter = 500, epsilon = 0.001,
+  printrange = TRUE, alpadj = TRUE,
+  shrink = "ALPHA", makevone = FALSE
+)
 print(est_maee_ind_bin)
 
 
 ### GEE
-est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin, X = X, id = id,
-                          Z = Z, family = 'binomial',
-                          maxiter = 500, epsilon = 0.001,
-                          printrange = TRUE, alpadj = FALSE,
-                          shrink = 'ALPHA', makevone = FALSE)
+est_uee_ind_bin <- geemaee(
+  y = sampleSWCRT$y_bin, X = X, id = id,
+  Z = Z, family = "binomial",
+  maxiter = 500, epsilon = 0.001,
+  printrange = TRUE, alpadj = FALSE,
+  shrink = "ALPHA", makevone = FALSE
+)
 print(est_uee_ind_bin)
 
-
 \donttest{
-## This will elapse longer. 
+## This will elapse longer.
 ########################################################################
 ### Example 2): simulated SW-CRT with larger cluster-period sizes (20~30)
 ########################################################################
 
-sampleSWCRT = sampleSWCRTLarge
+sampleSWCRT <- sampleSWCRTLarge
 
 ###############################################################
 ### Individual-level id, period, outcome, and design matrix ###
 ###############################################################
 
-id = sampleSWCRT$id; period =  sampleSWCRT$period;
-X = as.matrix(sampleSWCRT[, c('period1', 'period2', 'period3', 'period4', 'period5', 'treatment')])
+id <- sampleSWCRT$id
+period <- sampleSWCRT$period
+X <- as.matrix(sampleSWCRT[, c("period1", "period2", "period3", "period4", "period5", "treatment")])
 
-m = as.matrix(table(id, period)); n = dim(m)[1]; t = dim(m)[2]; 
-
+m <- as.matrix(table(id, period))
+n <- dim(m)[1]
+t <- dim(m)[2]
 ### design matrix for correlation parameters
-Z = createzCrossSec(m)
+Z <- createzCrossSec(m)
 
 ################################################################
 ### (1) Matrix-adjusted estimating equations and GEE
@@ -195,20 +225,24 @@ Z = createzCrossSec(m)
 ################################################################
 
 ### MAEE
-est_maee_ind_con = geemaee(y = sampleSWCRT$y_con, X = X, id = id,
-                           Z = Z, family = 'continuous',
-                           maxiter = 500, epsilon = 0.001,
-                           printrange = TRUE, alpadj = TRUE,
-                           shrink = 'ALPHA', makevone = FALSE)
+est_maee_ind_con <- geemaee(
+  y = sampleSWCRT$y_con, X = X, id = id,
+  Z = Z, family = "continuous",
+  maxiter = 500, epsilon = 0.001,
+  printrange = TRUE, alpadj = TRUE,
+  shrink = "ALPHA", makevone = FALSE
+)
 print(est_maee_ind_con)
 
 
 ### GEE
-est_uee_ind_con = geemaee(y = sampleSWCRT$y_con, X = X, id = id,
-                          Z = Z, family = 'continuous',
-                          maxiter = 500, epsilon = 0.001,
-                          printrange = TRUE, alpadj = FALSE,
-                          shrink = 'ALPHA', makevone = FALSE)
+est_uee_ind_con <- geemaee(
+  y = sampleSWCRT$y_con, X = X, id = id,
+  Z = Z, family = "continuous",
+  maxiter = 500, epsilon = 0.001,
+  printrange = TRUE, alpadj = FALSE,
+  shrink = "ALPHA", makevone = FALSE
+)
 print(est_uee_ind_con)
 
 ###############################################################
@@ -217,29 +251,26 @@ print(est_uee_ind_con)
 ###############################################################
 
 ### MAEE
-est_maee_ind_bin = geemaee(y = sampleSWCRT$y_bin, X = X, id = id,
-                           Z = Z, family = 'binomial',
-                           maxiter = 500, epsilon = 0.001,
-                           printrange = TRUE, alpadj = TRUE,
-                           shrink = 'ALPHA', makevone = FALSE)
+est_maee_ind_bin <- geemaee(
+  y = sampleSWCRT$y_bin, X = X, id = id,
+  Z = Z, family = "binomial",
+  maxiter = 500, epsilon = 0.001,
+  printrange = TRUE, alpadj = TRUE,
+  shrink = "ALPHA", makevone = FALSE
+)
 print(est_maee_ind_bin)
 
 
 ### GEE
-est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin, X = X, id = id,
-                          Z = Z, family = 'binomial',
-                          maxiter = 500, epsilon = 0.001,
-                          printrange = TRUE, alpadj = FALSE,
-                          shrink = 'ALPHA', makevone = FALSE)
+est_uee_ind_bin <- geemaee(
+  y = sampleSWCRT$y_bin, X = X, id = id,
+  Z = Z, family = "binomial",
+  maxiter = 500, epsilon = 0.001,
+  printrange = TRUE, alpadj = FALSE,
+  shrink = "ALPHA", makevone = FALSE
+)
 print(est_uee_ind_bin)
-
 }
-
-
-
-
-
-
 
 }
 \references{

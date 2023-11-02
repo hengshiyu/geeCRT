@@ -3,6 +3,7 @@
 \docType{package}
 \name{geeCRT}
 \alias{geeCRT}
+\alias{geeCRT-package}
 \title{geeCRT: a package for implementing the bias-corrected generalized estimating equations in analyzing cluster randomized trials}
 \description{
 geeCRT: a package for implementing the bias-corrected generalized estimating equations in analyzing cluster randomized trials
@@ -15,3 +16,16 @@ The cpgeeSWD function performs cluster-period generalized estimating equations f
 The geemaee function performs matrix-adjusted generalized estimating equations on estimating the marginal mean and correlation parameters in cluster randomized trials
 }
 
+\author{
+\strong{Maintainer}: Hengshi Yu \email{hengshi@umich.edu}
+
+Authors:
+\itemize{
+  \item Fan Li \email{fan.f.li@yale.edu}
+  \item Paul Rathouz \email{paul.rathouz@austin.utexas.edu}
+  \item Elizabeth L. Turner \email{liz.turner@duke.edu}
+  \item John Preisser \email{jpreisse@bios.unc.edu}
+}
+
+}
+\keyword{internal}

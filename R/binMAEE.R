@@ -1,794 +1,979 @@
-binMAEE = function(y, X, id, Z, maxiter, epsilon, printrange, alpadj, shrink, makevone) {
+# Binary responses: GEE and Matrix-adjusted Estimating Equations (MAEE)
+# for Estimating the Marginal Mean and Correlation Parameters in CRTs
+# Args:
+#  y: a vector specifying the outcome variable across all clusters
+#  X: design matrix for the marginal mean model, including the intercept
+#  id: a vector specifying cluster identifier
+#  Z: design matrix for the correlation model, should be all pairs j < k
+#    for each cluster
+#  maxiter: maximum number of iterations for Fisher scoring updates
+#  epsilon: tolerance for convergence. The default is 0.001
+#  printrange: print details of range violations. The default is TRUE
+#  alpadj: if TRUE, performs bias adjustment for the correlation
+#    estimating equations. The default is FALSE
+#  shrink: method to tune step sizes in case of non-convergence including
+#    'THETA' or 'ALPHA'. The default is 'ALPHA'
+#  makevone if TRUE, it assumes unit variances for the correlation
+#    parameters in the correlation estimating equations. The default is
+#    TRUE
+# Returns:
+#  beta: a vector of estimates for marginal mean model parameters
+#  alpha: a vector of estimates of correlation parameters
+#  MB: model-based covariance estimate for the marginal mean model parameters
+#  BC0: alpha robust sandwich covariance estimate of the marginal mean model
+#       and correlation parameters
+#  BC1: robust sandwich covariance estimate of the marginal mean model and
+#       correlation parameters with the Kauermann and Carroll (2001) correction
+#  BC2: robust sandwich covariance estimate of the marginal mean model and
+#       correlation parameters with the Mancl and DeRouen (2001) correction
+#  BC3: robust sandwich covariance estimate of the marginal mean model and
+#       correlation parameters with the Fay and Graubard (2001) correction
+#  niter: number of iterations in the Fisher scoring updates for model fitting
 
-    ##################################################################################### MODULE: BEGINEND Creates two vectors that have the start and
-    ##################################################################################### end points for each cluster
+binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
+                          alpadj, shrink, makevone) {
+  # begin_end
+  # Args:
+  #  n: Vector of cluster sample sizes
+  # Returns:
+  #  matrix with two columns.
+  #  first: a vector with starting row for cluster i,
+  #  last: a vector with ending row for cluster i
+  begin_end <- function(n) {
+    last <- cumsum(n)
+    first <- last - n + 1
+    return(cbind(first, last))
+  }
 
-    # INPUT n: Vector of cluster sample sizes
+  # is_pos_def
+  # Args:
+  #  matrix: symmetric matrix
+  # Returns:
+  #  returns 1 if matrix is positive definite else 0
+  is_pos_def <- function(matrix) {
+    return(min(eigen(matrix)$values) > 1e-13)
+  }
 
-    # OUTPUT first: Vector with starting row for cluster i last:
-    # Vector with ending row for cluster i
-    BEGINEND = function(n) {
-        last = cumsum(n)
-        first = last - n + 1
-        return(cbind(first, last))
+  # get_corr_beta_deriv calculates the derivative of correlation matrix to
+  #  marginal mean covariates
+  # Args:
+  #  mu: marginal means for the cluster
+  #  gamma: pairwise correlation for outcome j and k for the cluster
+  #  j: indicator for the mean
+  #  k: indicator for the mean
+  #  X: covariate matrix for the cluster
+  #  y: response vector for the cluster
+  # Returns:
+  #  derivative of the empirical correlation over marginal mean covariates
+  get_corr_beta_deriv <- function(mu, gamma, j, k, X, y) {
+    row <- (gamma / 2) * ((1 - 2 * mu[j]) * X[j, ] + (1 - 2 * mu[k]) *
+      X[k, ] + 2 * mu[j] * (1 - mu[j]) * X[j, ] / (y[j] - mu[j]) +
+      2 * mu[k] * (1 - mu[k]) * X[k, ] / (y[k] - mu[k]))
+    return(row)
+  }
+
+  # create_beta_residual creates residual for beta estimating equation
+  # Args:
+  #  mu: marginal mean vector
+  #  y: outcome vector
+  # Returns:
+  #  residual of marginal outcome
+  create_beta_residual <- function(mu, y) {
+    return(y - mu)
+  }
+
+  # create_beta_derivative creates derivative for beta estimating equation
+  # Args:
+  #  X: covariate matrix for cluster
+  #  mu: marginal mean vector
+  # Returns:
+  #  derivative of beta estimating equation
+  create_beta_derivative <- function(X, mu) {
+    return(X * (mu * (1 - mu)))
+  }
+
+  # create_beta_covariance creates covariance for beta estimating equation
+  # Args:
+  #  mu: marginal mean vector
+  #  n: sample size for the cluster
+  #  gamma: working correlation mean vector
+  # Returns:
+  #  working covariance matrix for beta estimating equation
+  create_beta_covariance <- function(mu, n, gamma = NULL) {
+    if (is.null(gamma)) {
+      return(as.matrix(mu * (1 - mu)))
     }
-
-    ##################################################################################### Module: IS_POS_DEF A = symmetric matrix returns 1 if A is
-    ##################################################################################### positive definite 0 otherwise
-    is_pos_def = function(A) {
-        return(min(eigen(A)$values) > 1e-13)
+    B <- diag(mu * (1 - mu))
+    l <- 1
+    for (j in 1:(n - 1)) {
+      for (k in (j + 1):n) {
+        B[j, k] <- sqrt(mu[j] * mu[k] * (1 - mu[j]) * (1 - mu[k])) * gamma[l]
+        l <- l + 1
+      }
     }
-
-    ##################################################################################### MODULE: GETROWB Generates a row of the -E(d(corr)/dbeta) (ie
-    ##################################################################################### Q) matrix
-
-    # INPUT mu: marginal means for cluster i gamma: pairwise
-    # correlation for outcome j and k for cluster i j: indicator for
-    # mean k: indicator for mean X: covariate matrix for cluster i
-    # y: response vector for cluster i
-
-    # OUTPUT Row of -E(d(corr)/dbeta) (ie Q) matrix
-    GETROWB = function(mu, gamma, j, k, X, y) {
-
-        row = (gamma/2) * ((1 - 2 * mu[j]) * X[j, ] + (1 - 2 * mu[k]) *
-            X[k, ] + 2 * mu[j] * (1 - mu[j]) * X[j, ]/(y[j] - mu[j]) +
-            2 * mu[k] * (1 - mu[k]) * X[k, ]/(y[k] - mu[k]))
-        return(row)
-    }
-
-    ##################################################################################### MODULE: CREATEA Creates residual for beta estimating equation,
-    ##################################################################################### (Y - mu)
-
-    # INPUT mu: Vector of n_i marginal means y: Outcome vector for
-    # ith cluster
-
-    # OUTPUT residuals for beta estimating equation
-    CREATEA = function(mu, y) {
-        return(y - mu)
-    }
-
-    ##################################################################################### MODULE: CREATEC Creates derivative matrix for beta estimating
-    ##################################################################################### equation, dmu/dbeta
-
-    # INPUT X: Covariate matrix for cluster i mu: Vector of n_i
-    # marginal means
-
-    # OUTPUT derivative matrix for beta estimating equation
-    CREATEC = function(X, mu) {
-        return(X * (mu * (1 - mu)))
-    }
-
-    ##################################################################################### MODULE: CREATEB Creates covariance matrix for beta estimating
-    ##################################################################################### equation, var(Y)
-
-    # INPUT mu: Vector of n_i marginal means n: Sample size (scalar)
-    # for cluster i gamma: Vector of rho_jk between outcome j and k
-    # for cluster i
-
-    # OUTPUT covariance matrix for beta estimating equation
-    CREATEB = function(mu, gamma, n) {
-
-        B = diag(mu * (1 - mu))
-        l = 1
-
-        for (j in 1:(n - 1)) {
-
-            for (k in (j + 1):n) {
-                B[j, k] = sqrt(mu[j] * mu[k] * (1 - mu[j]) * (1 -
-                  mu[k])) * gamma[l]
-                l = l + 1
-            }
-        }
-
-        B[lower.tri(B)] = t(B)[lower.tri(B)]
-
-        return(B)
-    }
-
-    ##################################################################################### MODULE: SCORE Generates the score matrix for each cluster and
-    ##################################################################################### approximate information to be used to estimate parameters and
-    ##################################################################################### generate standard errors
-
-    # INPUT Ustarold: initial values for information matrix beta:
-    # Vector of marginal mean parameters alpha: Vector of marginal
-    # correlation parameters y: The 0/1 binary outcome X: Marginal
-    # mean covariates Z: Marginal correlation covariates n: Vector
-    # of cluster sample sizes p: Number of marginal mean parameters
-    # q: Number of marginal correlation parameters flag: Performs an
-    # Eigenanalysis of B to see if positive definite. Only called
-    # when computing the variance at the end (0, 1). Prints warning
-    # for each cluster violation.  rangeflag: Checks to see if
-    # correlation is within range based on marginal means (0 = in
-    # range, 1 = out of range). See Prentice (1988).  VEEFLAG:
-    # Checks if all variances for alpha e.e. are positive,
-    # terminates if not NPSDFLAG: Checks if B is positive definite,
-    # terminates if not NPSDADJFLAG: Checks if the alpha adjustment
-    # factor matrix is positive definite, terminates if not
-
-    # OUTPUT U: Score vector UUtran: Sum of U_i*U_i` across all
-    # clusters Ustar: Approximate information matrix
-    SCORE = function(Ustarold, beta, alpha, y, X, Z, n, p, q, flag,
-        rangeflag, VEEFLAG, NPSDFLAG, NPSDADJFLAG) {
-
-        U = rep(0, p + q)
-        UUtran = Ustar = matrix(0, p + q, p + q)
-        naiveold = ginv(Ustarold[1:p, 1:p])
-        # needed for Hi1 below
-
-        locx = BEGINEND(n)
-        locz = BEGINEND(choose(n, 2))
-
-        for (i in 1:length(n)) {
-
-            X_c = X[locx[i, 1]:locx[i, 2], , drop = FALSE]
-            y_c = y[locx[i, 1]:locx[i, 2]]
-            Z_c = Z[locz[i, 1]:locz[i, 2], , drop = FALSE]
-
-            U_c = rep(0, p + q)
-            Ustar_c = matrix(0, p + q, p + q)
-            mu_c = 1/(1 + exp(c(-X_c %*% beta)))
-            gamma_c = c(Z_c %*% alpha)
-
-            VEE = R = rep(0, choose(n[i], 2))
-            DB = matrix(0, choose(n[i], 2), p)
-
-            C = CREATEC(X_c, mu_c)
-            B = CREATEB(mu_c, gamma_c, n[i])
-            A = CREATEA(mu_c, y_c)
-
-            INVB = ginv(B)
-            CtinvB = t(C) %*% INVB
-            Hi1 = C %*% naiveold %*% CtinvB
-
-            if (alpadj) {
-                SQVARFUN = sqrt(mu_c * (1 - mu_c))
-                INVSQVAR = 1/SQVARFUN
-                CT = t(C)
-                omega = C %*% naiveold %*% CT
-                vminomega = B - omega
-                psd_vmin = is_pos_def(vminomega)
-                mineig = min(eigen(vminomega)$values)
-                if (psd_vmin == 1) {
-                  Ci = diag(INVSQVAR) %*% (B %*% ginv(vminomega)) %*%
-                    diag(SQVARFUN)
-                  RX = (y_c - mu_c) * INVSQVAR
-                  Gi = tcrossprod(RX)
-                } else {
-                  NPSDADJFLAG = 1
-                  stop("(V - Omega) is not positive definite")
-                }
-            } else {
-
-                SQVARFUN = sqrt(mu_c * (1 - mu_c))
-                INVSQVAR = 1/SQVARFUN
-                RX = (y_c - mu_c) * INVSQVAR
-                Gi = tcrossprod(RX)
-
-            }
-
-
-            # RANGE CHECKS
-            l = 1
-            for (j in 1:(n[i] - 1)) {
-                for (k in (j + 1):n[i]) {
-                  if ((gamma_c[l] >= min(sqrt((mu_c[j] * (1 - mu_c[k]))/(mu_c[k] *
-                    (1 - mu_c[j]))), sqrt((mu_c[k] * (1 - mu_c[j]))/(mu_c[j] *
-                    (1 - mu_c[k]))))) | (gamma_c[l] <= max(-sqrt((mu_c[j] *
-                    mu_c[k])/((1 - mu_c[j]) * (1 - mu_c[k]))), -sqrt(((1 -
-                    mu_c[j]) * (1 - mu_c[k]))/(mu_c[j] * mu_c[k])))) &
-                    (flag == 0)) {
-
-                    rangeflag = 1
-
-                    if (printrange) {
-                      warning(cat("Range Violation Detected for Cluster",
-                        i, "and Pair", j, k, "\n"))
-                    }
-
-                    break
-                  }
-                  if ((gamma_c[l] >= min(sqrt((mu_c[j] * (1 - mu_c[k]))/(mu_c[k] *
-                    (1 - mu_c[j]))), sqrt((mu_c[k] * (1 - mu_c[j]))/(mu_c[j] *
-                    (1 - mu_c[k]))))) | (gamma_c[l] <= max(-sqrt((mu_c[j] *
-                    mu_c[k])/((1 - mu_c[j]) * (1 - mu_c[k]))), -sqrt(((1 -
-                    mu_c[j]) * (1 - mu_c[k]))/(mu_c[j] * mu_c[k])))) &
-                    (flag == 1)) {
-
-                    warning(cat("Last Update Pushes Parameters Out of Range.",
-                      "\n"))
-                    warning(cat("Range Violation Detected for Cluster",
-                      i, "and Pair", j, k, "\n"))
-
-                  }
-
-                  VEE[l] = 1 + ((1 - 2 * mu_c[j]) * (1 - 2 * mu_c[k]) *
-                    gamma_c[l])/sqrt(mu_c[j] * (1 - mu_c[j]) * mu_c[k] *
-                    (1 - mu_c[k])) - gamma_c[l]^2
-
-                  # insert check that variance is nonnegative
-                  if (VEE[l] <= 0) {
-                    VEEFLAG = 1
-                    stop("Variance of correlation parameter is negative")
-                  }
-
-                  # DB[l,] = GETROWB(mu_c,gamma_c[l],j,k,X_c,y_c)
-
-                  # Matrix-based multiplicative correction, (I - H_i)^{-1}
-                  if (alpadj) {
-                    R[l] = Ci[j, ] %*% Gi[, k] - gamma_c[l]
-                  } else {
-                    R[l] = Gi[j, k] - gamma_c[l]
-                  }
-
-
-                  l = l + 1
-                }
-            }
-
-            if (makevone) {
-                VEE = rep(1, choose(n[i], 2))
-            }
-
-            # Check for pos def of B; For the simulations only, the check is
-            # done at every iteration; score module is exited if not p.s.d.,
-            # otherwise whole program would crash;
-            if (min(eigen(B)$values) <= 0) {
-                NPSDFLAG = 1
-                stop(paste("Var(Y) of Cluster", i, "is not Positive-Definite;",
-                  "Joint Distribution Does Not Exist and Program terminates"))
-            }
-
-            U_c[1:p] = t(C) %*% INVB %*% A
-            U_c[(p + 1):(p + q)] = t(Z_c) %*% (R/VEE)  # this is specific to the linear structure
-            UUtran_c = tcrossprod(U_c)
-            Ustar_c[1:p, 1:p] = t(C) %*% INVB %*% C
-
-            Ustar_c[(p + 1):(p + q), (p + 1):(p + q)] = t(Z_c) %*%
-                (Z_c/VEE)
-
-            U = U + U_c
-            UUtran = UUtran + UUtran_c
-            Ustar = Ustar + Ustar_c
-        }
-        rangeflag = 0
-        return(list(U = U, UUtran = UUtran, Ustar = Ustar, flag = flag,
-            rangeflag = rangeflag, VEEFLAG = VEEFLAG, NPSDFLAG = NPSDFLAG,
-            NPSDADJFLAG = NPSDADJFLAG))
-    }
-
-    ##################################################################################### MODULE: INITBETA Generates initial values for beta.
-    ##################################################################################### Approximates logistic regression using Newton's method
-
-    # INPUT y: The 0/1 binary outcomer4 X: Marginal mean covariates
-    # n: Vector of cluster sample sizes
-
-    # OUTPUT beta: Vector of marginal mean parameters Ustar:
-    # approximate score vector
-    INITBETA = function(y, X, n) {
-        z = y + y - 1
-        beta = solve(t(X) %*% X, t(X) %*% z)
-
-        for (i in 1:2) {
-            u = c(X %*% beta)
-            u = 1/(1 + exp(-u))
-            v = u * (1 - u)
-            z = t(X) %*% (y - u)
-            Ustar = t(X) %*% (X * v)
-            d = solve(Ustar, z)
-            beta = beta + d
-        }
-        return(list(beta = c(beta), Ustar = Ustar))
-    }
-
-
-    ##################################################################################### MODULE: INVBIG compute (A - mm`)^{-1}c without performing the
-    ##################################################################################### inverse directly INPUT ainvc: inverse of matrix A times vector
-    ##################################################################################### c ainvm: inverse of matrix A times matrix (with low no. of
-    ##################################################################################### columns) M M: matrix of eigen column vectors m1,m2, ..  c:
-    ##################################################################################### vector start: of do loop end: of do loop, rank of X
-
-    # OUTPUT ainvc: inverse of matrix A times vector c
-
-    INVBIG = function(ainvc, ainvm, m, c, start, end) {
-        for (i in start:end) {
-            b = ainvm[, i]
-            bt = t(b)
-            btm = bt %*% m
-            btmi = btm[, i]
-            gam = 1 - btmi
-            bg = b/gam
-            ainvc = ainvc + bg %*% (bt %*% c)
-            if (i < end) {
-                ainvm = ainvm + bg %*% btm
-            }
-        }
-        return(ainvc)
-    }
-
-    ##################################################################################### MODULE: MAKEVAR Creates covariance matrix of beta and alpha.
-
-    # INPUT beta: Vector of marginal mean parameters alpha: Vector
-    # of marginal correlation parameters Ustarold: initial values
-    # for information matrix y: The 0/1 binary outcome X: Marginal
-    # mean covariates Z: Marginal correlation covariates n: Vector
-    # of cluster sample sizes p: Number of marginal mean parameters
-    # q: Number of marginal correlation parameters VEEFLAG: Checks
-    # if all variances for alpha e.e. are positive, terminates if
-    # not NPSDFLAG: Checks if B is positive definite, terminates if
-    # not NPSDADJFLAG: Checks if the alpha adjustment factor matrix
-    # is positive definite, terminates if not
-
-    # OUTPUT robust: Robust covariance matrix for beta and alpha
-    # naive: Naive (Model-Based) covariance matrix for beta varMD:
-    # bias-corrected variance by Mancl and Derouen (2001) varKC:
-    # bias-corrected variance by Kauermann and Carroll (2001) varFG:
-    # bias-corrected variance by Fay and Graubard (2001)
-    MAKEVAR = function(Ustarold, beta, alpha, y, X, Z, n, p, q,
-        VEEFLAG, ROBFLAG, NPSDADJFLAG) {
-
-        SCORE_RES = SCORE(Ustarold, beta, alpha, y, X, Z, n, p,
-            q, flag = 1, rangeflag = 0, VEEFLAG, NPSDFLAG, NPSDADJFLAG)
-
-        U = SCORE_RES$U
-        UUtran = SCORE_RES$UUtran
-        Ustar = SCORE_RES$Ustar
-        flag = SCORE_RES$flag
-        rangeflag = SCORE_RES$rangeflag
-        VEEFLAG = SCORE_RES$VEEFLAG
-        NPSDFLAG = SCORE_RES$NPSDFLAG
-        NPSDADJFLAG = SCORE_RES$NPSDADJFLAG
-
-        naive = ginv(Ustar[1:p, 1:p])
-        naivealp = ginv(Ustar[(p + 1):(p + q), (p + 1):(p + q)])
-
-        # new commands to compute INV(I - H1)
-        eigenRES1 = eigen(naive)
-        evals1 = eigenRES1$values
-        evecs1 = eigenRES1$vectors
-        sqrevals1 = sqrt(evals1)
-        sqe1 = evecs1 %*% diag(sqrevals1)
-
-        # new commands to compute INV(I - H2)
-        eigenRES2 = eigen(naivealp)
-        evals2 = eigenRES2$values
-        evecs2 = eigenRES2$vectors
-        sqrevals2 = sqrt(evals2)
-
-        if (length(sqrevals2) == 1) {
-            sqe2 = evecs2 %*% sqrevals2
+    B[lower.tri(B)] <- t(B)[lower.tri(B)]
+    return(B)
+  }
+
+  # score_function generates the score matrix for each cluster and
+  # approximate information to be used to estimate parameters and
+  # generate standard errors
+  # Args:
+  #  Ustar_prev: initial values for information matrix
+  #  beta: vector of marginal mean parameters
+  #  alpha: vector of marginal correlation parameters
+  #  y: the 0/1 binary outcome
+  #  X: marginal mean covariates
+  #  Z: marginal correlation covariates
+  #  n: vector of cluster sample sizes
+  #  p: number of marginal mean parameters
+  #  q: number of marginal correlation parameters
+  #  flag: performs an eigen-analysis of covariance to see if positive
+  #        definite. only called when computing the variance at the
+  #        end (0, 1). Prints warning for each cluster violation.
+  #  range_flag: checks to see if correlation is within range based on
+  #              marginal means (0 = in range, 1 = out of range).
+  #              See Prentice (1988).
+  #  alpha_work_cov_flag: checks if all variances for alpha estimating
+  #                       equations are positive, terminates if not
+  #  not_pos_def_work_cov_flag: checks if working covariance is positive
+  #                             definite, terminates if not
+  #  not_pos_def_alpadj_flag: checks if the alpha adjustment factor matrix is
+  #                           positive definite, terminates if not
+  # Returns:
+  #  U: score vector
+  #  UUtran: sum of U_i*U_i` across all clusters
+  #  Ustar: approximated information matrix
+  #  flag: Performs an eigen-analysis of covariance to see if positive
+  #        definite. only called when computing the variance at the
+  #        end (0, 1). Prints warning for each cluster violation.
+  #  range_flag: checks to see if correlation is within range based on
+  #              marginal means (0 = in range, 1 = out of range).
+  #              See Prentice (1988).
+  #  alpha_work_cov_flag: checks if all variances for alpha estimating
+  #                       equations are positive, terminates if not
+  #  not_pos_def_work_cov_flag: checks if working covariance is positive
+  #                             definite, terminates if not
+  #  not_pos_def_alpadj_flag: Checks if the alpha adjustment factor matrix is
+  #                           positive definite, terminates if not
+  score_function <- function(Ustar_prev, beta, alpha, y, X, Z, n, p, q,
+                             flag, range_flag, alpha_work_cov_flag,
+                             not_pos_def_work_cov_flag,
+                             not_pos_def_alpadj_flag) {
+    # score function
+    U <- rep(0, p + q)
+    # meat and bread (information) of the sandwich variance estimator
+    UUtran <- Ustar <- matrix(0, p + q, p + q)
+    naive_inv_prev <- ginv(Ustar_prev[1:p, 1:p])
+    # needed for Hi1 below
+
+    loc_x <- begin_end(n)
+    loc_z <- begin_end(choose(n, 2))
+
+    # iterate through the clusters
+    for (i in 1:length(n)) {
+      X_c <- X[loc_x[i, 1]:loc_x[i, 2], , drop = FALSE]
+      y_c <- y[loc_x[i, 1]:loc_x[i, 2]]
+
+
+      U_c <- rep(0, p + q)
+      Ustar_c <- matrix(0, p + q, p + q)
+      mu_c <- 1 / (1 + exp(c(-X_c %*% beta)))
+
+      # case when there was only 1 observation for this cluster
+      if (loc_x[i, 1] == loc_x[i, 2]) {
+        beta_deriv <- create_beta_derivative(X_c, mu_c)
+        beta_work_cov <- create_beta_covariance(mu_c, n[i])
+        beta_resid <- create_beta_residual(mu_c, y_c)
+
+        inv_work_cov <- ginv(beta_work_cov)
+        U_c[1:p] <- t(beta_deriv) %*% inv_work_cov %*% beta_resid
+        UUtran_c <- tcrossprod(U_c)
+
+        Ustar_c[1:p, 1:p] <- t(beta_deriv) %*% inv_work_cov %*% beta_deriv
+        U <- U + U_c
+        UUtran <- UUtran + UUtran_c
+        Ustar <- Ustar + Ustar_c
+        next
+      }
+
+      Z_c <- Z[loc_z[i, 1]:loc_z[i, 2], , drop = FALSE]
+      gamma_c <- c(Z_c %*% alpha)
+      # correlation means
+
+      alpha_work_cov <- alpha_resid <- rep(0, choose(n[i], 2))
+
+      beta_deriv <- create_beta_derivative(X_c, mu_c)
+      beta_work_cov <- create_beta_covariance(mu_c, n[i], gamma_c)
+      beta_resid <- create_beta_residual(mu_c, y_c)
+
+      inv_work_cov <- ginv(beta_work_cov)
+
+      if (alpadj) {
+        square_var <- sqrt(mu_c * (1 - mu_c))
+        inv_square_var <- 1 / square_var
+        beta_deriv_trans <- t(beta_deriv)
+        omega <- beta_deriv %*% naive_inv_prev %*% beta_deriv_trans
+        v_min_omega <- beta_work_cov - omega
+        psd_vmin <- is_pos_def(v_min_omega)
+
+        if (psd_vmin == 1) {
+          Ci <- diag(inv_square_var) %*% (beta_work_cov %*%
+            ginv(v_min_omega)) %*% diag(square_var)
+          Rx <- (y_c - mu_c) * inv_square_var
+          Gi <- tcrossprod(Rx)
         } else {
-            sqe2 = evecs2 %*% diag(sqrevals2)
+          not_pos_def_alpadj_flag <- 1
+          stop("(V - Omega) is not positive definite")
         }
+      } else {
+        square_var <- sqrt(mu_c * (1 - mu_c))
+        inv_square_var <- 1 / square_var
+        Rx <- (y_c - mu_c) * inv_square_var
+        Gi <- tcrossprod(Rx)
+      }
 
+      # range checks: iterate through the correlations
+      # and residual and covariance matrix for the alpha
+      # estimating equations
+      l <- 1
+      for (j in 1:(n[i] - 1)) {
+        for (k in (j + 1):n[i]) {
+          range_condition <- (gamma_c[l] > min(
+            sqrt((mu_c[j] *
+              (1 - mu_c[k])) / (mu_c[k] * (1 - mu_c[j]))),
+            sqrt((mu_c[k] * (1 - mu_c[j])) / (mu_c[j] *
+              (1 - mu_c[k])))
+          )) | (gamma_c[l] < max(-sqrt((mu_c[j] *
+            mu_c[k]) / ((1 - mu_c[j]) * (1 - mu_c[k]))), -sqrt(((1 -
+            mu_c[j]) * (1 - mu_c[k])) / (mu_c[j] * mu_c[k]))))
 
-        # Bias-corrected variance
-        Ustar_c_array = UUtran_c_array = array(0, c(p + q, p + q,
-            length(n)))
-        UUtran = UUbc = UUbc2 = UUbc3 = Ustar = inustar = matrix(0,
-            p + q, p + q)
+          if (range_condition & (flag == 0)) {
+            range_flag <- 1
 
-        locx = BEGINEND(n)
-        locz = BEGINEND(choose(n, 2))
-
-        for (i in 1:length(n)) {
-            X_c = X[locx[i, 1]:locx[i, 2], , drop = FALSE]
-            y_c = y[locx[i, 1]:locx[i, 2]]
-            mu_c = 1/(1 + exp(c(-X_c %*% beta)))
-
-            U_i = U_c = rep(0, p + q)
-            Ustar_c = matrix(0, p + q, p + q)
-            Z_c = Z[locz[i, 1]:locz[i, 2], , drop = FALSE]
-            gamma_c = c(Z_c %*% alpha)
-
-            # commands for beta
-            C = CREATEC(X_c, mu_c)
-            B = CREATEB(mu_c, gamma_c, n[i])
-            A = CREATEA(mu_c, y_c)
-            INVB = ginv(B)
-            U_i[1:p] = t(C) %*% INVB %*% A
-
-            CtinvB = t(C) %*% INVB
-            Hi1 = C %*% naive %*% CtinvB
-
-            # commands for generalized inverse - beta
-            ai1 = INVB
-            mm1 = C %*% sqe1
-            ai1A = ai1 %*% A
-            ai1m1 = ai1 %*% mm1
-            ai1A = INVBIG(ai1A, ai1m1, mm1, A, 1, p)
-            U_c[1:p] = t(C) %*% ai1A
-
-            # commands for alpha
-            VEE = R = rep(0, choose(n[i], 2))
-            DB = matrix(0, choose(n[i], 2), p)
-            RX = rep(0, n[i])
-
-            # MAEE
-            if (alpadj) {
-                SQVARFUN = sqrt(mu_c * (1 - mu_c))
-                INVSQVAR = 1/SQVARFUN
-                CT = t(C)
-                omega = C %*% naive %*% CT
-                vminomega = B - omega
-                psd_vmin = is_pos_def(vminomega)
-                mineig = min(eigen(vminomega)$values)
-
-                if (psd_vmin == 1) {
-
-                  Ci = diag(INVSQVAR) %*% (B %*% ginv(vminomega)) %*%
-                    diag(SQVARFUN)
-                  RX = (y_c - mu_c) * INVSQVAR
-                  Gi = tcrossprod(RX)
-                } else {
-                  NPSDADJFLAG = 1
-                  stop("(V - Omega) is not positive definite")
-                }
-            } else {
-
-                SQVARFUN = sqrt(mu_c * (1 - mu_c))
-                INVSQVAR = 1/SQVARFUN
-                RX = (y_c - mu_c) * INVSQVAR
-                Gi = tcrossprod(RX)
+            if (printrange) {
+              warning(cat(
+                "Range Violation Detected for Cluster",
+                i, "and Pair", j, k, "\n"
+              ))
             }
+            break
+          }
 
-            l = 1
-            for (j in 1:(n[i] - 1)) {
-                for (k in (j + 1):n[i]) {
-                  VEE[l] = 1 + ((1 - 2 * mu_c[j]) * (1 - 2 * mu_c[k]) *
-                    gamma_c[l])/sqrt(mu_c[j] * (1 - mu_c[j]) * mu_c[k] *
-                    (1 - mu_c[k])) - gamma_c[l]^2
+          if (range_condition & (flag == 1)) {
+            warning(cat(
+              "Last Update Pushes Parameters Out of Range.",
+              "\n"
+            ))
+            warning(cat(
+              "Range Violation Detected for Cluster",
+              i, "and Pair", j, k, "\n"
+            ))
+          }
 
-                  DB[l, ] = GETROWB(mu_c, gamma_c[l], j, k, X_c,
-                    y_c)
+          if (!makevone) {
+            alpha_work_cov[l] <- 1 + ((1 - 2 * mu_c[j]) * (1 - 2 * mu_c[k]) *
+              gamma_c[l]) / sqrt(mu_c[j] * (1 - mu_c[j]) * mu_c[k] *
+              (1 - mu_c[k])) - gamma_c[l]^2
+          }
 
-                  # Matrix-based multiplicative correction, (I - H_i)^{-1}
-                  if (alpadj) {
-                    R[l] = Ci[j, ] %*% Gi[, k] - gamma_c[l]
-                  } else {
-                    R[l] = Gi[j, k] - gamma_c[l]
-                  }
-                  l = l + 1
-                }
-            }
+          # insert check that variance is nonnegative
+          if (alpha_work_cov[l] <= 0) {
+            alpha_work_cov_flag <- 1
+            stop("Variance of correlation parameter is non-positive")
+          }
 
+          # Matrix-based multiplicative correction, (I - H_i)^{-1}
+          if (alpadj) {
+            alpha_resid[l] <- Ci[j, ] %*% Gi[, k] - gamma_c[l]
+          } else {
+            alpha_resid[l] <- Gi[j, k] - gamma_c[l]
+          }
 
-            if (makevone) {
-                VEE = rep(1, choose(n[i], 2))
-            }
-
-
-
-            U_i[(p + 1):(p + q)] = t(Z_c) %*% (R/VEE)
-            mm2 = Z_c %*% sqe2
-            ai2R = R/VEE
-            ai2m2 = mm2/VEE
-            ai2R = INVBIG(ai2R, ai2m2, mm2, R, 1, q)
-            U_c[(p + 1):(p + q)] = t(Z_c) %*% ai2R
-
-            Ustar_c[1:p, 1:p] = t(C) %*% INVB %*% C
-            Ustar_c[(p + 1):(p + q), 1:p] = t(Z_c) %*% (DB/VEE)
-            Ustar_c[(p + 1):(p + q), (p + 1):(p + q)] = t(Z_c) %*%
-                (Z_c/VEE)
-            Ustar = Ustar + Ustar_c
-
-            UUtran_c = tcrossprod(U_i)
-            UUtran = UUtran + UUtran_c
-            UUbc_c = tcrossprod(U_c)
-            UUbc = UUbc + UUbc_c
-            UUbc_ic = tcrossprod(U_c, U_i)
-            UUbc2 = UUbc2 + UUbc_ic
-
-            Ustar_c_array[, , i] = Ustar_c
-            UUtran_c_array[, , i] = UUtran_c
+          l <- l + 1
         }
+      }
 
-        inustar[1:p, 1:p] = ginv(Ustar[1:p, 1:p])
-        inustar[(p + 1):(p + q), (p + 1):(p + q)] = ginv(Ustar[(p +
-            1):(p + q), (p + 1):(p + q)])
-        inustar[(p + 1):(p + q), 1:p] = -inustar[(p + 1):(p + q),
-            (p + 1):(p + q)] %*% Ustar[(p + 1):(p + q), 1:p] %*%
-            inustar[1:p, 1:p]
+      if (makevone) {
+        alpha_work_cov <- rep(1, choose(n[i], 2))
+      }
 
-        # the minus sign above is crucial, esp. for large correlation;
-        inustartr = t(inustar)
+      # Check for pos def of working covariance;
+      # For the simulations only, the check is
+      # done at every iteration; score module is exited if not p.s.d.,
+      # otherwise whole program would crash;
+      if (min(eigen(beta_work_cov)$values) <= 0) {
+        not_pos_def_work_cov_flag <- 1
+        stop(paste(
+          "Var(Y) of Cluster", i, "is not Positive-Definite;",
+          "Joint Distribution Does Not Exist and Program terminates"
+        ))
+      }
 
-        # calculating adjustment factor for BC3
-        for (i in 1:length(n)) {
-            Hi = diag(1/sqrt(1 - pmin(0.75, c(diag(Ustar_c_array[,
-                , i] %*% inustar)))))
-            UUbc3 = UUbc3 + Hi %*% UUtran_c_array[, , i] %*% Hi
-        }
+      U_c[1:p] <- t(beta_deriv) %*% inv_work_cov %*% beta_resid
+      U_c[(p + 1):(p + q)] <- t(Z_c) %*% (alpha_resid / alpha_work_cov)
+      # this is specific to the linear structure
+      UUtran_c <- tcrossprod(U_c)
 
-        # BC0 or usual Sandwich estimator of Prentice (1988);
-        robust = inustar %*% UUtran %*% inustartr
+      Ustar_c[1:p, 1:p] <- t(beta_deriv) %*% inv_work_cov %*% beta_deriv
+      Ustar_c[(p + 1):(p + q), (p + 1):(p + q)] <- t(Z_c) %*%
+        (Z_c / alpha_work_cov)
 
-        # BC1 or Variance estimator that extends Kauermann and Carroll
-        # (2001);
-        varKC = inustar %*% (UUbc2 + t(UUbc2)) %*% inustartr/2
-
-        # BC2 or Variance estimator that extends Mancl and DeRouen
-        # (2001);
-        varMD = inustar %*% UUbc %*% inustartr
-
-        # BC3 or Variance estimator that extends Fay and Graubard
-        # (2001);
-        varFG = inustar %*% UUbc3 %*% inustartr
-
-        naive = inustar[1:p, 1:p]
-
-        if (min(diag(robust)) <= 0) {
-            ROBFLAG = 1
-        }
-        if (min(diag(varMD)) <= 0) {
-            ROBFLAG = 1
-        }
-        if (min(diag(varKC)) <= 0) {
-            ROBFLAG = 1
-        }
-        if (min(diag(varFG)) <= 0) {
-            ROBFLAG = 1
-        }
-
-        return(list(robust = robust, naive = naive, varMD = varMD,
-            varKC = varKC, varFG = varFG, VEEFLAG = VEEFLAG, ROBFLAG = ROBFLAG,
-            NPSDADJFLAG = NPSDADJFLAG))
+      U <- U + U_c
+      UUtran <- UUtran + UUtran_c
+      Ustar <- Ustar + Ustar_c
     }
 
-    ##################################################################################### MODULE: FITPRENTICE Performs the Prentice (1988) Method
+    return(list(
+      U = U,
+      UUtran = UUtran,
+      Ustar = Ustar,
+      flag = flag,
+      range_flag = range_flag,
+      alpha_work_cov_flag = alpha_work_cov_flag,
+      not_pos_def_work_cov_flag = not_pos_def_work_cov_flag,
+      not_pos_def_alpadj_flag = not_pos_def_alpadj_flag
+    ))
+  }
 
-    # INPUT y: The 0/1 binary outcome X: Marginal mean covariates Z:
-    # Marginal correlation covariates n: Vector of cluster sample
-    # sizes maxiter: Max number of iterations epsilon: Tolerence for
-    # convergence VEEFLAG: THE ALGORITHM terminated due to
-    # nonpositive variance in weights SINGFLAG: THE ALGORITHM
-    # terminated due to singular MB covariance matrix ROBFLAG: THE
-    # ALGORITHM terminated due to singular robust variance matrix
-    # VEEFLAG: Checks if all variances for alpha e.e. are positive,
-    # terminates if not NPSDFLAG: Checks if B is positive definite,
-    # terminates if not NPSDADJFLAG: Checks if the alpha adjustment
-    # factor matrix is positive definite, terminates if not
+  # initial_beta generates initial values for beta
+  #  by approximating logistic regression using Newton's method
+  # Args:
+  #  y: the 0/1 binary outcome
+  #  X: marginal mean covariates
+  #  n: vector of cluster sample sizes
+  # Returns:
+  #  beta: vector of marginal mean parameters
+  #  Ustar: approximate information matrix
+  initial_beta <- function(y, X, n) {
+    z <- y + y - 1
+    beta <- solve(t(X) %*% X, t(X) %*% z)
+    for (i in 1:2) {
+      u <- c(X %*% beta)
+      u <- 1 / (1 + exp(-u))
+      v <- u * (1 - u)
+      z <- t(X) %*% (y - u)
+      Ustar <- t(X) %*% (X * v)
+      d <- solve(Ustar, z)
+      beta <- beta + d
+    }
+    return(list(beta = c(beta), Ustar = Ustar))
+  }
 
-    # OUTPUT beta: A p x 1 vector of marginal mean parameter
-    # estimates alpha: A q x 1 vector of marginal correlation
-    # parameter estimates robust: Robust covariance matrix for beta
-    # and alpha naive: Naive (Model-Based) covariance matrix for
-    # beta varMD: Bias-corrected variance due to Mancl and DeRouen
-    # (2001) varKC: Bias-corrected variance due to Kauermann and
-    # Carroll (2001) varFG: Bias-corrected variance due to Fay and
-    # Graubard (2001) niter: Number of iterations required for
-    # convergence converge: Did the algorithm converge (0, 1)
+  # inv_big_matrix compute (A - mm`)^{-1}c without performing the
+  # inverse directly.
+  # Args:
+  #  ainvc: inverse of matrix A times vector c
+  #  ainvm: inverse of matrix A times matrix (with low no. of
+  #         columns) M
+  #  m: matrix of eigen column vectors m1,m2, ..
+  #  c: vector
+  #  start: of do loop
+  #  end: of do loop, rank of X
+  # Returns:
+  #  ainvc: inverse of matrix A times vector c
+  inv_big_matrix <- function(ainvc, ainvm, m, c, start, end) {
+    for (i in start:end) {
+      b <- ainvm[, i]
+      bt <- t(b)
+      btm <- bt %*% m
+      btmi <- btm[, i]
+      gam <- 1 - btmi
+      bg <- b / gam
+      ainvc <- ainvc + bg %*% (bt %*% c)
+      if (i < end) {
+        ainvm <- ainvm + bg %*% btm
+      }
+    }
+    return(ainvc)
+  }
 
-    FITPRENTICE = function(y, X, Z, n, maxiter, epsilon, VEEFLAG,
-        SINGFLAG, ROBFLAG, ALPFLAG, NPSDFLAG, NPSDADJFLAG) {
+  # variance_estimator creates covariance matrix of beta and alpha
+  # Args:
+  #  Ustar_prev: initial values for information matrix
+  #  beta: vector of marginal mean parameters
+  #  alpha: vector of marginal correlation parameters
+  #  y: the 0/1 binary outcome
+  #  X: marginal mean covariates
+  #  Z: marginal correlation covariates
+  #  n: vector of cluster sample sizes
+  #  p: number of marginal mean parameters
+  #  q: number of marginal correlation parameters
+  #  alpha_work_cov_flag: checks if all variances for alpha estimating
+  #                       equations are positive, terminates if not
+  #  not_pos_var_est_flag: checks if any robust covariance matrix
+  #                        contains non-positive variance
+  #  not_pos_def_alpadj_flag: checks if the alpha adjustment factor matrix is
+  #                           positive definite, terminates if not
+  # Returns:
+  #  naive: naive (Model-Based) covariance matrix for beta
+  #  robust: robust covariance matrix for beta and alpha
+  #  varMD: bias-corrected variance by Mancl and Derouen (2001)
+  #  varKC: bias-corrected variance by Kauermann and Carroll (2001)
+  #  varFG: bias-corrected variance by Fay and Graubard (2001)
+  #  alpha_work_cov_flag: checks if all variances for alpha estimating
+  #                       equations are positive, terminates if not
+  #  not_pos_def_work_cov_flag: checks if working covariance is positive
+  #                             definite, terminates if not
+  #  not_pos_def_alpadj_flag: checks if the alpha adjustment factor matrix is
+  #                           positive definite, terminates if not
+  variance_estimator <- function(Ustar_prev, beta, alpha, y, X, Z, n, p, q,
+                                 alpha_work_cov_flag, not_pos_var_est_flag,
+                                 not_pos_def_work_cov_flag,
+                                 not_pos_def_alpadj_flag) {
+    score_res <- score_function(Ustar_prev, beta, alpha, y, X, Z, n, p, q,
+      flag = 1, range_flag = 0, alpha_work_cov_flag,
+      not_pos_def_work_cov_flag, not_pos_def_alpadj_flag
+    )
 
-        p = ncol(X)
-        q = ncol(Z)
-        delta = rep(2 * epsilon, p + q)
-        max_modi = 20
-        converge = 0
+    U <- score_res$U
+    UUtran <- score_res$UUtran
+    Ustar <- score_res$Ustar
+    flag <- score_res$flag
+    range_flag <- score_res$range_flag
+    alpha_work_cov_flag <- score_res$alpha_work_cov_flag
+    not_pos_def_work_cov_flag <- score_res$not_pos_def_work_cov_flag
+    not_pos_def_alpadj_flag <- score_res$not_pos_def_alpadj_flag
 
-        rangeflag = 0
-        alpha = rep(0.01, q)
-        INITRES = INITBETA(y, X, n)
-        beta = INITRES$beta
-        Ustar = INITRES$Ustar
+    naive_beta <- ginv(Ustar[1:p, 1:p])
+    naive_alpha <- ginv(Ustar[(p + 1):(p + q), (p + 1):(p + q)])
 
-        niter = 1
-        while ((niter <= maxiter) & (max(abs(delta)) > epsilon)) {
+    # new commands to compute INV(I - H1)
+    eigen_res_1 <- eigen(naive_beta)
+    evals_1 <- eigen_res_1$values
+    evecs_1 <- eigen_res_1$vectors
+    sqrt_evals_1 <- sqrt(evals_1)
+    sqrt_e1 <- evecs_1 %*% diag(sqrt_evals_1)
 
-            n_modi = 0
-            SINGFLAG = 0
-            ALPFLAG = 0
+    # new commands to compute INV(I - H2)
+    eigen_res_2 <- eigen(naive_alpha)
+    evals_2 <- eigen_res_2$values
+    evecs_2 <- eigen_res_2$vectors
+    sqrt_evals_2 <- sqrt(evals_2)
 
-            repeat {
-                Ustarold = Ustar
-
-                NPSDFLAG = 0
-                NPSDADJFLAG = 0
-                SCORE_RES = SCORE(Ustarold, beta, alpha, y, X, Z,
-                  n, p, q, flag = 0, rangeflag, VEEFLAG, NPSDFLAG,
-                  NPSDADJFLAG)
-                U = SCORE_RES$U
-                UUtran = SCORE_RES$UUtran
-                Ustar = SCORE_RES$Ustar
-                rangeflag = SCORE_RES$rangeflag
-                VEEFLAG = SCORE_RES$VEEFLAG
-
-                if (VEEFLAG == 1) {
-                  stop("Program terminated due to division by zero in variance")
-                }
-
-                if (rangeflag == 1) {
-
-                  if (shrink == "THETA") {
-
-                    if (niter == 1) {
-                      alpha = rep(0, q)
-                    } else {
-                      theta = theta - (0.5)^(n_modi + 1) * delta
-                      beta = theta[1:p]
-                      alpha = theta[(p + 1):(p + q)]
-                    }
-
-                  } else if (shrink == "ALPHA") {
-
-                    if (niter == 1) {
-                      alpha = rep(0, q)
-                    } else {
-                      alpha = 0.95 * alpha
-                    }
-
-                  }
-                  n_modi = n_modi + 1
-                  if (printrange) {
-                    warning(cat("Iteration", niter, "and Shrink Number",
-                      n_modi, "\n"))
-                  }
-                }
-                if ((n_modi > max_modi) | (rangeflag == 0)) {
-                  break
-                }
-            }
-
-            if (n_modi > max_modi) {
-                if (printrange) {
-                  warning(cat("n_modi too great, more than 20 shrinks"))
-                }
-                ALPFLAG = 1
-            }
-
-            theta = c(beta, alpha)
-
-            psdustar = is_pos_def(Ustar)
-            mineig = min(eigen(Ustar)$values)
-
-            if (psdustar) {
-
-                delta = solve(Ustar, U)
-                theta = theta + delta
-                beta = theta[1:p]
-                alpha = theta[(p + 1):(p + q)]
-                converge = (max(abs(delta)) <= epsilon)
-
-            } else {
-
-                SINGFLAG = 1
-
-            }
-
-            niter = niter + 1
-        }
-
-        Ustarold = Ustar
-
-        # inference
-        MAKEVAR_RES = MAKEVAR(Ustarold, beta, alpha, y, X, Z, n,
-            p, q, VEEFLAG, ROBFLAG, NPSDADJFLAG)
-        robust = MAKEVAR_RES$robust
-        naive = MAKEVAR_RES$naive
-        varMD = MAKEVAR_RES$varMD
-        varKC = MAKEVAR_RES$varKC
-        varFG = MAKEVAR_RES$varFG
-        VEEFLAG = MAKEVAR_RES$VEEFLAG
-        ROBFLAG = MAKEVAR_RES$ROBFLAG
-        NPSDADJFLAG = MAKEVAR_RES$NPSDADJFLAG
-
-
-        return(list(beta = beta, alpha = alpha, robust = robust,
-            naive = naive, varMD = varMD, varKC = varKC, varFG = varFG,
-            niter = niter, converge = converge, VEEFLAG = VEEFLAG,
-            SINGFLAG = SINGFLAG, ROBFLAG = ROBFLAG, ALPFLAG = ALPFLAG,
-            NPSDFLAG = NPSDFLAG, NPSDADJFLAG = NPSDADJFLAG))
+    ## when there is only 1 alpha parameter
+    if (length(sqrt_evals_2) == 1) {
+      sqrt_e2 <- evecs_2 %*% sqrt_evals_2
+    } else {
+      sqrt_e2 <- evecs_2 %*% diag(sqrt_evals_2)
     }
 
-    ##################################################################################### MODULE: RESULTS Creates printed output to screen of parameters
-    ##################################################################################### and other information
+    # bias-corrected variance
+    Ustar_c_array <- UUtran_c_array <- array(0, c(p + q, p + q, length(n)))
+    UUtran <- UUbc <- UUbc2 <- UUbc3 <- Ustar <- inv_Ustar <- matrix(
+      0,
+      p + q, p + q
+    )
 
-    # INPUT beta: Vector of marginal mean parameters alpha: Vector
-    # of marginal correlation Parameters robust: Robust covariance
-    # matrix for beta and alpha naive: Naive (Model-Based)
-    # covariance matrix for beta niter: Number of iterations until
-    # convergence n: Vector of cluster sample sizes
+    loc_x <- begin_end(n)
+    loc_z <- begin_end(choose(n, 2))
 
-    # OUTPUT To Screen
-    RESULTS = function(beta, alpha, robust, naive, varMD, varKC,
-        varFG, niter, n) {
-        p = length(beta)
-        q = length(alpha)
-        K = length(n)
-        df = K - p
+    for (i in 1:length(n)) {
+      X_c <- X[loc_x[i, 1]:loc_x[i, 2], , drop = FALSE]
+      y_c <- y[loc_x[i, 1]:loc_x[i, 2]]
+      mu_c <- 1 / (1 + exp(c(-X_c %*% beta)))
+      U_i <- U_c <- rep(0, p + q)
+      Ustar_c <- matrix(0, p + q, p + q)
 
-        beta_numbers = as.matrix(seq(1:p)) - 1
-        bSE = sqrt(diag(naive))
-        bSEBC0 = sqrt(diag(robust[1:p, 1:p]))
-        bSEBC1 = sqrt(diag(varKC[1:p, 1:p]))
-        bSEBC2 = sqrt(diag(varMD[1:p, 1:p]))
-        bSEBC3 = sqrt(diag(varFG[1:p, 1:p]))
+      # case when there was only 1 observation for this cluster
+      if (loc_x[i, 1] == loc_x[i, 2]) {
+        beta_deriv <- create_beta_derivative(X_c, mu_c)
+        beta_work_cov <- create_beta_covariance(mu_c, n[i])
+        beta_resid <- create_beta_residual(mu_c, y_c)
 
-        alpha_numbers = as.matrix(seq(1:q)) - 1
-        if (q == 1) {
-            aSEBC0 = sqrt(robust[(p + 1):(p + q), (p + 1):(p + q)])
-            aSEBC1 = sqrt(varKC[(p + 1):(p + q), (p + 1):(p + q)])
-            aSEBC2 = sqrt(varMD[(p + 1):(p + q), (p + 1):(p + q)])
-            aSEBC3 = sqrt(varFG[(p + 1):(p + q), (p + 1):(p + q)])
+        inv_work_cov <- ginv(beta_work_cov)
+        U_i[1:p] <- t(beta_deriv) %*% inv_work_cov %*% beta_resid
 
+        ai1 <- inv_work_cov
+        mm1 <- beta_deriv %*% sqrt_e1
+        ai1A <- ai1 %*% beta_resid
+        ai1m1 <- ai1 %*% mm1
+        ai1A <- inv_big_matrix(ai1A, ai1m1, mm1, beta_resid, 1, p)
+        U_c[1:p] <- t(beta_deriv) %*% ai1A
+        Ustar_c[1:p, 1:p] <- t(beta_deriv) %*% inv_work_cov %*% beta_deriv
+
+        UUtran_c <- tcrossprod(U_i)
+        UUbc_c <- tcrossprod(U_c)
+        UUbc_ic <- tcrossprod(U_c, U_i)
+
+        UUtran <- UUtran + UUtran_c
+        UUbc <- UUbc + UUbc_c
+        UUbc2 <- UUbc2 + UUbc_ic
+        Ustar <- Ustar + Ustar_c
+
+
+        Ustar_c_array[, , i] <- Ustar_c
+        UUtran_c_array[, , i] <- UUtran_c
+
+        next
+      }
+
+      Z_c <- Z[loc_z[i, 1]:loc_z[i, 2], , drop = FALSE]
+      gamma_c <- c(Z_c %*% alpha)
+      # marginal means and correlation means
+
+      # commands for beta
+      beta_deriv <- create_beta_derivative(X_c, mu_c)
+      beta_work_cov <- create_beta_covariance(mu_c, n[i], gamma_c)
+      beta_resid <- create_beta_residual(mu_c, y_c)
+
+      inv_work_cov <- ginv(beta_work_cov)
+      U_i[1:p] <- t(beta_deriv) %*% inv_work_cov %*% beta_resid
+
+      # commands for generalized inverse - beta
+      ai1 <- inv_work_cov
+      mm1 <- beta_deriv %*% sqrt_e1
+      ai1A <- ai1 %*% beta_resid
+      ai1m1 <- ai1 %*% mm1
+      ai1A <- inv_big_matrix(ai1A, ai1m1, mm1, beta_resid, 1, p)
+      U_c[1:p] <- t(beta_deriv) %*% ai1A
+
+      # commands for generalized inverse - alpha
+      alpha_work_cov <- alpha_resid <- rep(0, choose(n[i], 2))
+      corr_beta_deriv <- matrix(0, choose(n[i], 2), p)
+
+      # MAEE
+      if (alpadj) {
+        square_var <- sqrt(mu_c * (1 - mu_c))
+        inv_square_var <- 1 / square_var
+        beta_deriv_trans <- t(beta_deriv)
+        omega <- beta_deriv %*% naive_beta %*% beta_deriv_trans
+        v_min_omega <- beta_work_cov - omega
+        psd_vmin <- is_pos_def(v_min_omega)
+
+        if (psd_vmin == 1) {
+          Ci <- diag(inv_square_var) %*% (beta_work_cov %*%
+            ginv(v_min_omega)) %*% diag(square_var)
+          Rx <- (y_c - mu_c) * inv_square_var
+          Gi <- tcrossprod(Rx)
         } else {
-            # more than 1 correlation parameters
-            aSEBC0 = sqrt(diag(robust[(p + 1):(p + q), (p + 1):(p + q)]))
-            aSEBC1 = sqrt(diag(varKC[(p + 1):(p + q), (p + 1):(p + q)]))
-            aSEBC2 = sqrt(diag(varMD[(p + 1):(p + q), (p + 1):(p + q)]))
-            aSEBC3 = sqrt(diag(varFG[(p + 1):(p + q), (p + 1):(p + q)]))
+          not_pos_def_alpadj_flag <- 1
+          stop("(V - Omega) is not positive definite")
         }
-        
-        outbeta = cbind(beta_numbers, beta, bSE, bSEBC0, bSEBC1,
-            bSEBC2, bSEBC3)
-        outalpha = cbind(alpha_numbers, alpha, aSEBC0, aSEBC1, aSEBC2,
-            aSEBC3)
-        colnames(outbeta) = c("Beta", "Estimate", "MB-stderr", "BC0-stderr",
-            "BC1-stderr", "BC2-stderr", "BC3-stderr")
-        colnames(outalpha) = c("Alpha", "Estimate", "BC0-stderr",
-            "BC1-stderr", "BC2-stderr", "BC3-stderr")
+      } else {
+        square_var <- sqrt(mu_c * (1 - mu_c))
+        inv_square_var <- 1 / square_var
+        Rx <- (y_c - mu_c) * inv_square_var
+        Gi <- tcrossprod(Rx)
+      }
 
+      # residual and covariance matrix for the alpha
+      # estimating equations
+      l <- 1
+      for (j in 1:(n[i] - 1)) {
+        for (k in (j + 1):n[i]) {
+          if (!makevone) {
+            alpha_work_cov[l] <- 1 + ((1 - 2 * mu_c[j]) * (1 - 2 * mu_c[k]) *
+              gamma_c[l]) / sqrt(mu_c[j] * (1 - mu_c[j]) * mu_c[k] *
+              (1 - mu_c[k])) - gamma_c[l]^2
+          }
 
-        return(list(outbeta = outbeta, outalpha = outalpha))
+          corr_beta_deriv[l, ] <- get_corr_beta_deriv(
+            mu_c, gamma_c[l], j, k, X_c,
+            y_c
+          )
+
+          # Matrix-based multiplicative correction, (I - H_i)^{-1}
+          if (alpadj) {
+            alpha_resid[l] <- Ci[j, ] %*% Gi[, k] - gamma_c[l]
+          } else {
+            alpha_resid[l] <- Gi[j, k] - gamma_c[l]
+          }
+          l <- l + 1
+        }
+      }
+
+      if (makevone) {
+        alpha_work_cov <- rep(1, choose(n[i], 2))
+      }
+
+      U_i[(p + 1):(p + q)] <- t(Z_c) %*% (alpha_resid / alpha_work_cov)
+
+      mm2 <- Z_c %*% sqrt_e2
+      ai2R <- alpha_resid / alpha_work_cov
+      ai2m2 <- mm2 / alpha_work_cov
+      ai2R <- inv_big_matrix(ai2R, ai2m2, mm2, alpha_resid, 1, q)
+      U_c[(p + 1):(p + q)] <- t(Z_c) %*% ai2R
+
+      Ustar_c[1:p, 1:p] <- t(beta_deriv) %*% inv_work_cov %*% beta_deriv
+      Ustar_c[(p + 1):(p + q), 1:p] <- t(Z_c) %*% (corr_beta_deriv /
+        alpha_work_cov)
+      Ustar_c[(p + 1):(p + q), (p + 1):(p + q)] <- t(Z_c) %*% (Z_c /
+        alpha_work_cov)
+
+      Ustar <- Ustar + Ustar_c
+
+      UUtran_c <- tcrossprod(U_i)
+      UUtran <- UUtran + UUtran_c
+
+      UUbc_c <- tcrossprod(U_c)
+      UUbc <- UUbc + UUbc_c
+
+      UUbc_ic <- tcrossprod(U_c, U_i)
+      UUbc2 <- UUbc2 + UUbc_ic
+
+      Ustar_c_array[, , i] <- Ustar_c
+      UUtran_c_array[, , i] <- UUtran_c
     }
 
-    # reasons for non-results are identified and tallied
-    VEEFLAG = 0
-    SINGFLAG = 0
-    CONVFLAG = 0  # omiited in the arguments for prentice fit
-    ROBFLAG = 0
-    ALPFLAG = 0
-    NPSDFLAG = 0
-    NPSDADJFLAG = 0
+    inv_Ustar[1:p, 1:p] <- ginv(Ustar[1:p, 1:p])
+    inv_Ustar[(p + 1):(p + q), (p + 1):(p + q)] <- ginv(Ustar[(p +
+      1):(p + q), (p + 1):(p + q)])
+    inv_Ustar[(p + 1):(p + q), 1:p] <- -inv_Ustar[
+      (p + 1):(p + q),
+      (p + 1):(p + q)
+    ] %*% Ustar[(p + 1):(p + q), 1:p] %*%
+      inv_Ustar[1:p, 1:p]
+    # the minus sign above is crucial, esp. for large correlation;
 
-    # sort by id
-    id1 = id[order(id)]
-    y = y[order(id)]
-    X = X[order(id), ]
-    id = id1
+    inv_Ustar_trans <- t(inv_Ustar)
 
-    n = as.vector(table(id))
-    # Fit the Prentice Model
-    PRENTICE_RES = FITPRENTICE(y, X, Z, n, maxiter, epsilon, VEEFLAG,
-        SINGFLAG, ROBFLAG, ALPFLAG, NPSDFLAG, NPSDADJFLAG)
-    beta = PRENTICE_RES$beta
-    alpha = PRENTICE_RES$alpha
-    robust = PRENTICE_RES$robust
-    naive = PRENTICE_RES$naive
-    varMD = PRENTICE_RES$varMD
-    varKC = PRENTICE_RES$varKC
-    varFG = PRENTICE_RES$varFG
-    niter = PRENTICE_RES$niter
-    converge = PRENTICE_RES$converge
-    VEEFLAG = PRENTICE_RES$VEEFLAG
-    SINGFLAG = PRENTICE_RES$SINGFLAG
-    ROBFLAG = PRENTICE_RES$ROBFLAG
-    ALPFLAG = PRENTICE_RES$ALPFLAG
-    NPSDFLAG = PRENTICE_RES$NPSDFLAG
-    NPSDADJFLAG = PRENTICE_RES$NPSDADJFLAG
-
-    # Final Results
-    if (SINGFLAG == 1) {
-        stop("Derivative matrix for beta is singular during updates")
-    }
-    if (ROBFLAG == 1) {
-        stop("Sandwich variance is not positive definite")
-    }
-    if (converge == 0 & SINGFLAG == 0) {
-        stop("The algorithm did not converge")
+    # calculating adjustment factor for BC3
+    for (i in 1:length(n)) {
+      Hi <- diag(1 / sqrt(1 - pmin(
+        0.75,
+        c(diag(Ustar_c_array[, , i] %*% inv_Ustar))
+      )))
+      UUbc3 <- UUbc3 + Hi %*% UUtran_c_array[, , i] %*% Hi
     }
 
-    if (converge == 1 & ROBFLAG == 0) {
-        result = RESULTS(beta, alpha, robust, naive, varMD, varKC,
-            varFG, niter, n)
-        outList = list(outbeta = result$outbeta, outalpha = result$outalpha,
-            beta = beta, alpha = alpha, MB = naive, BC0 = robust,
-            BC1 = varKC, BC2 = varMD, BC3 = varFG, niter = niter)
-        class(outList) = "geemaee"
-        return(outList)
+    # BC0 or usual Sandwich estimator of Prentice (1988);
+    robust <- inv_Ustar %*% UUtran %*% inv_Ustar_trans
+
+    # BC1 or Variance estimator that extends Kauermann and Carroll (2001);
+    varKC <- inv_Ustar %*% (UUbc2 + t(UUbc2)) %*% inv_Ustar_trans / 2
+
+    # BC2 or Variance estimator that extends Mancl and DeRouen (2001);
+    varMD <- inv_Ustar %*% UUbc %*% inv_Ustar_trans
+
+    # BC3 or Variance estimator that extends Fay and Graubard (2001);
+    varFG <- inv_Ustar %*% UUbc3 %*% inv_Ustar_trans
+
+    naive <- inv_Ustar[1:p, 1:p]
+
+    if (min(diag(robust)) <= 0) {
+      not_pos_var_est_flag <- 1
     }
+    if (min(diag(varMD)) <= 0) {
+      not_pos_var_est_flag <- 1
+    }
+    if (min(diag(varKC)) <= 0) {
+      not_pos_var_est_flag <- 1
+    }
+    if (min(diag(varFG)) <= 0) {
+      not_pos_var_est_flag <- 1
+    }
+
+    return(list(
+      naive = naive,
+      robust = robust,
+      varMD = varMD,
+      varKC = varKC,
+      varFG = varFG,
+      alpha_work_cov_flag = alpha_work_cov_flag,
+      not_pos_var_est_flag = not_pos_var_est_flag,
+      not_pos_def_alpadj_flag = not_pos_def_alpadj_flag
+    ))
+  }
+
+  # model_fit solves generalized estimating equations for marginal mean
+  # and correlation parameters
+  # Args:
+  #  y: the 0/1 binary outcome
+  #  X: marginal mean covariates
+  #  Z: marginal correlation covariates
+  #  n: vector of cluster sample sizes
+  #  maxiter: max number of iterations
+  #  epsilon: tolerence for convergence
+  #  alpha_work_cov_flag: algorithm terminated due to non-positive variance
+  #                       of correlation parameters
+  #  singular_naive_var_flag: checks if the naive covariance matrix
+  #                           is not positive definite
+  #  not_pos_var_est_flag: checks if any robust covariance matrix
+  #                        contains non-positive variance
+  #  alpha_shrink_flag: checks if the number of alpha shrinkage steps exceeds
+  #                     20 in order to make the correlation within bounds
+  #  not_pos_def_work_cov_flag: checks if working covariance is positive
+  #                             definite, terminates if not
+  #  not_pos_def_alpadj_flag: checks if the alpha adjustment factor matrix
+  #                           is positive definite, terminates if not
+  # Returns:
+  #  beta: a p x 1 vector of marginal mean parameter estimates
+  #  alpha: a q x 1 vector of marginal correlation parameter estimates
+  #  robust: robust covariance matrix for beta and alpha
+  #  naive: naive (model-Based) covariance matrix for beta
+  #  varMD: bias-corrected variance due to Mancl and DeRouen (2001)
+  #  varKC: bias-corrected variance due to Kauermann and Carroll (2001)
+  #  varFG: bias-corrected variance due to Fay and Graubard (2001)
+  #  niter: number of iterations required for convergence
+  #  converge: whether the algorithm converged (1) or not (0)
+  #  alpha_work_cov_flag: algorithm terminated due to non-positive variance
+  #                       of correlation parameters
+  #  singular_naive_var_flag: checks if the naive covariance matrix
+  #                           is not positive definite
+  #  not_pos_var_est_flag: checks if any robust covariance matrix
+  #                        contains non-positive variance
+  #  alpha_shrink_flag: checks if the number of alpha shrinkage steps exceeds
+  #                     20 in order to make the correlation within bounds
+  #  not_pos_def_work_cov_flag: checks if working covariance is positive
+  #                             definite, terminates if not
+  #  not_pos_def_alpadj_flag: checks if the alpha adjustment factor matrix
+  #                           is positive definite, terminates if not
+  model_fit <- function(y, X, Z, n, maxiter, epsilon, alpha_work_cov_flag,
+                        singular_naive_var_flag, not_pos_var_est_flag,
+                        alpha_shrink_flag, not_pos_def_work_cov_flag,
+                        not_pos_def_alpadj_flag) {
+    p <- ncol(X)
+    q <- ncol(Z)
+    delta <- rep(2 * epsilon, p + q)
+    max_modify <- 20
+    converge <- 0
+
+    range_flag <- 0
+    alpha <- rep(0.01, q)
+    init_res <- initial_beta(y, X, n)
+    beta <- init_res$beta
+    Ustar <- init_res$Ustar
+
+    niter <- 1
+    while ((niter <= maxiter) & (max(abs(delta)) > epsilon)) {
+      n_modify <- 0
+      singular_naive_var_flag <- 0
+      alpha_shrink_flag <- 0
+
+      repeat {
+        Ustar_prev <- Ustar
+        not_pos_def_work_cov_flag <- 0
+        not_pos_def_alpadj_flag <- 0
+
+        score_res <- score_function(Ustar_prev, beta, alpha, y, X, Z,
+          n, p, q,
+          flag = 0, range_flag, alpha_work_cov_flag,
+          not_pos_def_work_cov_flag,
+          not_pos_def_alpadj_flag
+        )
+
+        U <- score_res$U
+        UUtran <- score_res$UUtran
+        Ustar <- score_res$Ustar
+        range_flag <- score_res$range_flag
+        alpha_work_cov_flag <- score_res$alpha_work_cov_flag
+
+        if (alpha_work_cov_flag == 1) {
+          stop("Program terminated due to division by zero in variance")
+        }
+
+        if (range_flag == 1) {
+          if (shrink == "THETA") {
+            if (niter == 1) {
+              alpha <- rep(0, q)
+            } else {
+              theta <- theta - (0.5)^(n_modify + 1) * delta
+              beta <- theta[1:p]
+              alpha <- theta[(p + 1):(p + q)]
+            }
+          } else if (shrink == "ALPHA") {
+            if (niter == 1) {
+              alpha <- rep(0, q)
+            } else {
+              alpha <- 0.95 * alpha
+            }
+          }
+          n_modify <- n_modify + 1
+          if (printrange) {
+            warning(cat(
+              "Iteration", niter, "and Shrink Number",
+              n_modify, "\n"
+            ))
+          }
+        }
+        if ((n_modify > max_modify) | (range_flag == 0)) {
+          break
+        }
+      }
+
+      if (n_modify > max_modify) {
+        if (printrange) {
+          warning(cat("n_modify too large, more than 20 shrinks"))
+        }
+        alpha_shrink_flag <- 1
+      }
+
+      theta <- c(beta, alpha)
+
+      psd_ustar <- is_pos_def(Ustar)
+      if (psd_ustar) {
+        delta <- solve(Ustar, U)
+        theta <- theta + delta
+        beta <- theta[1:p]
+        alpha <- theta[(p + 1):(p + q)]
+        converge <- (max(abs(delta)) <= epsilon)
+      } else {
+        singular_naive_var_flag <- 1
+      }
+      niter <- niter + 1
+    }
+
+    Ustar_prev <- Ustar
+
+    # inference
+    var_res <- variance_estimator(
+      Ustar_prev, beta, alpha, y, X, Z, n,
+      p, q, alpha_work_cov_flag, not_pos_var_est_flag,
+      not_pos_def_work_cov_flag,
+      not_pos_def_alpadj_flag
+    )
+    naive <- var_res$naive
+    robust <- var_res$robust
+    varMD <- var_res$varMD
+    varKC <- var_res$varKC
+    varFG <- var_res$varFG
+
+    alpha_work_cov_flag <- var_res$alpha_work_cov_flag
+    not_pos_var_est_flag <- var_res$not_pos_var_est_flag
+    not_pos_def_alpadj_flag <- var_res$not_pos_def_alpadj_flag
+
+    return(list(
+      beta = beta,
+      alpha = alpha,
+      naive = naive,
+      robust = robust,
+      varMD = varMD,
+      varKC = varKC,
+      varFG = varFG,
+      niter = niter,
+      converge = converge,
+      alpha_work_cov_flag = alpha_work_cov_flag,
+      singular_naive_var_flag = singular_naive_var_flag,
+      not_pos_var_est_flag = not_pos_var_est_flag,
+      alpha_shrink_flag = alpha_shrink_flag,
+      not_pos_def_work_cov_flag = not_pos_def_work_cov_flag,
+      not_pos_def_alpadj_flag = not_pos_def_alpadj_flag
+    ))
+  }
+
+  # beta_alpha_format_results creates printed output to screen of parameters
+  #  and other information
+  # Args:
+  #  beta: vector of marginal mean parameters
+  #  alpha: vector of marginal correlation parameters
+  #  naive: naive (model-based) covariance matrix for beta
+  #  robust: robust covariance matrix for beta and alpha
+  #  niter: Number of iterations until convergence
+  #  n: vector of cluster sample sizes
+  # Returns:
+  #  output to screen
+  beta_alpha_format_results <- function(beta, alpha, naive, robust, varMD,
+                                        varKC, varFG, niter, n) {
+    p <- length(beta)
+    q <- length(alpha)
+    K <- length(n)
+    df <- K - p
+
+    beta_numbers <- as.matrix(seq(1:p)) - 1
+    bSE <- sqrt(diag(naive))
+    bSEBC0 <- sqrt(diag(robust[1:p, 1:p]))
+    bSEBC1 <- sqrt(diag(varKC[1:p, 1:p]))
+    bSEBC2 <- sqrt(diag(varMD[1:p, 1:p]))
+    bSEBC3 <- sqrt(diag(varFG[1:p, 1:p]))
+
+    alpha_numbers <- as.matrix(seq(1:q)) - 1
+    if (q == 1) {
+      aSEBC0 <- sqrt(robust[(p + 1):(p + q), (p + 1):(p + q)])
+      aSEBC1 <- sqrt(varKC[(p + 1):(p + q), (p + 1):(p + q)])
+      aSEBC2 <- sqrt(varMD[(p + 1):(p + q), (p + 1):(p + q)])
+      aSEBC3 <- sqrt(varFG[(p + 1):(p + q), (p + 1):(p + q)])
+    } else {
+      # more than 1 correlation parameters
+      aSEBC0 <- sqrt(diag(robust[(p + 1):(p + q), (p + 1):(p + q)]))
+      aSEBC1 <- sqrt(diag(varKC[(p + 1):(p + q), (p + 1):(p + q)]))
+      aSEBC2 <- sqrt(diag(varMD[(p + 1):(p + q), (p + 1):(p + q)]))
+      aSEBC3 <- sqrt(diag(varFG[(p + 1):(p + q), (p + 1):(p + q)]))
+    }
+
+    outbeta <- cbind(
+      beta_numbers, beta, bSE, bSEBC0, bSEBC1,
+      bSEBC2, bSEBC3
+    )
+    outalpha <- cbind(
+      alpha_numbers, alpha, aSEBC0, aSEBC1, aSEBC2,
+      aSEBC3
+    )
+    colnames(outbeta) <- c(
+      "Beta", "Estimate", "MB-stderr", "BC0-stderr",
+      "BC1-stderr", "BC2-stderr", "BC3-stderr"
+    )
+    colnames(outalpha) <- c(
+      "Alpha", "Estimate", "BC0-stderr",
+      "BC1-stderr", "BC2-stderr", "BC3-stderr"
+    )
+
+    return(list(outbeta = outbeta, outalpha = outalpha))
+  }
+
+  # main function operations start
+  # reasons for non-results are identified and tallied
+  alpha_work_cov_flag <- 0
+  singular_naive_var_flag <- 0
+  converge_flag <- 0 # omitted in the arguments for model fit
+  not_pos_var_est_flag <- 0
+  alpha_shrink_flag <- 0
+  not_pos_def_work_cov_flag <- 0
+  not_pos_def_alpadj_flag <- 0
+
+  # sort by id
+  id1 <- id[order(id)]
+  y <- y[order(id)]
+  X <- X[order(id), ]
+  id <- id1
+  n <- as.vector(table(id))
+
+  # fit the GEE2 model
+  model_fit_res <- model_fit(
+    y, X, Z, n, maxiter, epsilon, alpha_work_cov_flag,
+    singular_naive_var_flag, not_pos_var_est_flag, alpha_shrink_flag,
+    not_pos_def_work_cov_flag, not_pos_def_alpadj_flag
+  )
+
+  beta <- model_fit_res$beta
+  alpha <- model_fit_res$alpha
+  naive <- model_fit_res$naive
+  robust <- model_fit_res$robust
+  varMD <- model_fit_res$varMD
+  varKC <- model_fit_res$varKC
+  varFG <- model_fit_res$varFG
+  niter <- model_fit_res$niter
+
+  converge <- model_fit_res$converge
+  alpha_work_cov_flag <- model_fit_res$alpha_work_cov_flag
+  singular_naive_var_flag <- model_fit_res$singular_naive_var_flag
+  not_pos_var_est_flag <- model_fit_res$not_pos_var_est_flag
+  alpha_shrink_flag <- model_fit_res$alpha_shrink_flag
+  not_pos_def_work_cov_flag <- model_fit_res$not_pos_def_work_cov_flag
+  not_pos_def_alpadj_flag <- model_fit_res$not_pos_def_alpadj_flag
+
+  # final Results
+  if (singular_naive_var_flag == 1) {
+    stop("Derivative matrix for beta is singular during updates")
+  }
+  if (not_pos_var_est_flag == 1) {
+    stop("Sandwich variance is not positive definite")
+  }
+  if (converge == 0 & singular_naive_var_flag == 0) {
+    stop("The algorithm did not converge")
+  }
+
+  if (converge == 1 & not_pos_var_est_flag == 0) {
+    result <- beta_alpha_format_results(
+      beta, alpha, naive, robust, varMD, varKC,
+      varFG, niter, n
+    )
+    output_res <- list(
+      outbeta = result$outbeta, outalpha = result$outalpha,
+      beta = beta, alpha = alpha, MB = naive, BC0 = robust,
+      BC1 = varKC, BC2 = varMD, BC3 = varFG, niter = niter
+    )
+    class(output_res) <- "geemaee"
+    return(output_res)
+  }
 }
-
-
-
