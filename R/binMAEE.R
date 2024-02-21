@@ -6,6 +6,7 @@
 #  id: a vector specifying cluster identifier
 #  Z: design matrix for the correlation model, should be all pairs j < k
 #    for each cluster
+#  link: a specification for the model link function
 #  maxiter: maximum number of iterations for Fisher scoring updates
 #  epsilon: tolerance for convergence. The default is 0.001
 #  printrange: print details of range violations. The default is TRUE
@@ -30,7 +31,7 @@
 #       correlation parameters with the Fay and Graubard (2001) correction
 #  niter: number of iterations in the Fisher scoring updates for model fitting
 
-binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
+binomial_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
                           alpadj, shrink, makevone) {
   # begin_end
   # Args:
@@ -63,12 +64,17 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
   #  k: indicator for the mean
   #  X: covariate matrix for the cluster
   #  y: response vector for the cluster
+  #  link: a specification for the model link function
   # Returns:
   #  derivative of the empirical correlation over marginal mean covariates
-  get_corr_beta_deriv <- function(mu, gamma, j, k, X, y) {
-    row <- (gamma / 2) * ((1 - 2 * mu[j]) * X[j, ] + (1 - 2 * mu[k]) *
-      X[k, ] + 2 * mu[j] * (1 - mu[j]) * X[j, ] / (y[j] - mu[j]) +
-      2 * mu[k] * (1 - mu[k]) * X[k, ] / (y[k] - mu[k]))
+  get_corr_beta_deriv <- function(mu, gamma, j, k, X, y, link) {
+    beta_deriv_j <- create_beta_derivative(X[j, ], mu[j], link)
+    beta_deriv_k <- create_beta_derivative(X[k, ], mu[k], link)
+
+    row <- (gamma / 2) * ((1 / mu[j] - 1 / (1 - mu[j])) * beta_deriv_j +
+      (1 / mu[k] - 1 / (1 - mu[k])) * beta_deriv_k +
+      2 * beta_deriv_j / (y[j] - mu[j]) +
+      2 * beta_deriv_k / (y[k] - mu[k]))
     return(row)
   }
 
@@ -82,14 +88,40 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
     return(y - mu)
   }
 
+  # marginal_mean_estimation creates mean estimation
+  # Args:
+  #  X: covariate matrix for cluster
+  #  beta: vector of marginal mean parameters
+  #  link: a specification for the model link function
+  # Returns:
+  #  marginal mean vector
+  marginal_mean_estimation <- function(X, beta, link) {
+    if (link == "identity") {
+      mu <- c(X %*% beta)
+    } else if (link == "logit") {
+      mu <- 1 / (1 + exp(c(-X %*% beta)))
+    } else if (link == "log") {
+      mu <- exp(c(X %*% beta))
+    }
+    return(mu)
+  }
+
+
   # create_beta_derivative creates derivative for beta estimating equation
   # Args:
   #  X: covariate matrix for cluster
   #  mu: marginal mean vector
+  #  link: a specification for the model link function
   # Returns:
   #  derivative of beta estimating equation
-  create_beta_derivative <- function(X, mu) {
-    return(X * (mu * (1 - mu)))
+  create_beta_derivative <- function(X, mu, link) {
+    if (link == "identity") {
+      return(X)
+    } else if (link == "logit") {
+      return(X * (mu * (1 - mu)))
+    } else if (link == "log") {
+      return(X * mu)
+    }
   }
 
   # create_beta_covariance creates covariance for beta estimating equation
@@ -128,6 +160,7 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
   #  n: vector of cluster sample sizes
   #  p: number of marginal mean parameters
   #  q: number of marginal correlation parameters
+  #  link: a specification for the model link function
   #  flag: performs an eigen-analysis of covariance to see if positive
   #        definite. only called when computing the variance at the
   #        end (0, 1). Prints warning for each cluster violation.
@@ -157,7 +190,7 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
   #  not_pos_def_alpadj_flag: Checks if the alpha adjustment factor matrix is
   #                           positive definite, terminates if not
   score_function <- function(Ustar_prev, beta, alpha, y, X, Z, n, p, q,
-                             flag, range_flag, alpha_work_cov_flag,
+                             link, flag, range_flag, alpha_work_cov_flag,
                              not_pos_def_work_cov_flag,
                              not_pos_def_alpadj_flag) {
     # score function
@@ -175,14 +208,12 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
       X_c <- X[loc_x[i, 1]:loc_x[i, 2], , drop = FALSE]
       y_c <- y[loc_x[i, 1]:loc_x[i, 2]]
 
-
       U_c <- rep(0, p + q)
       Ustar_c <- matrix(0, p + q, p + q)
-      mu_c <- 1 / (1 + exp(c(-X_c %*% beta)))
-
+      mu_c <- marginal_mean_estimation(X_c, beta, link)
       # case when there was only 1 observation for this cluster
       if (loc_x[i, 1] == loc_x[i, 2]) {
-        beta_deriv <- create_beta_derivative(X_c, mu_c)
+        beta_deriv <- create_beta_derivative(X_c, mu_c, link)
         beta_work_cov <- create_beta_covariance(mu_c, n[i])
         beta_resid <- create_beta_residual(mu_c, y_c)
 
@@ -203,7 +234,7 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
 
       alpha_work_cov <- alpha_resid <- rep(0, choose(n[i], 2))
 
-      beta_deriv <- create_beta_derivative(X_c, mu_c)
+      beta_deriv <- create_beta_derivative(X_c, mu_c, link)
       beta_work_cov <- create_beta_covariance(mu_c, n[i], gamma_c)
       beta_resid <- create_beta_residual(mu_c, y_c)
 
@@ -342,18 +373,19 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
   #  y: the 0/1 binary outcome
   #  X: marginal mean covariates
   #  n: vector of cluster sample sizes
+  #  link: a specification for the model link function
   # Returns:
   #  beta: vector of marginal mean parameters
   #  Ustar: approximate information matrix
-  initial_beta <- function(y, X, n) {
+  initial_beta <- function(y, X, n, link) {
     z <- y + y - 1
     beta <- solve(t(X) %*% X, t(X) %*% z)
     for (i in 1:2) {
-      u <- c(X %*% beta)
-      u <- 1 / (1 + exp(-u))
-      v <- u * (1 - u)
-      z <- t(X) %*% (y - u)
-      Ustar <- t(X) %*% (X * v)
+      mu <- marginal_mean_estimation(X, beta, link)
+      beta_resid <- create_beta_residual(mu, y)
+      beta_deriv <- create_beta_derivative(X, mu, link)
+      z <- t(X) %*% beta_resid
+      Ustar <- t(X) %*% beta_deriv
       d <- solve(Ustar, z)
       beta <- beta + d
     }
@@ -399,6 +431,7 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
   #  n: vector of cluster sample sizes
   #  p: number of marginal mean parameters
   #  q: number of marginal correlation parameters
+  #  link: a specification for the model link function
   #  alpha_work_cov_flag: checks if all variances for alpha estimating
   #                       equations are positive, terminates if not
   #  not_pos_var_est_flag: checks if any robust covariance matrix
@@ -418,10 +451,11 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
   #  not_pos_def_alpadj_flag: checks if the alpha adjustment factor matrix is
   #                           positive definite, terminates if not
   variance_estimator <- function(Ustar_prev, beta, alpha, y, X, Z, n, p, q,
-                                 alpha_work_cov_flag, not_pos_var_est_flag,
+                                 link, alpha_work_cov_flag,
+                                 not_pos_var_est_flag,
                                  not_pos_def_work_cov_flag,
                                  not_pos_def_alpadj_flag) {
-    score_res <- score_function(Ustar_prev, beta, alpha, y, X, Z, n, p, q,
+    score_res <- score_function(Ustar_prev, beta, alpha, y, X, Z, n, p, q, link,
       flag = 1, range_flag = 0, alpha_work_cov_flag,
       not_pos_def_work_cov_flag, not_pos_def_alpadj_flag
     )
@@ -471,13 +505,13 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
     for (i in 1:length(n)) {
       X_c <- X[loc_x[i, 1]:loc_x[i, 2], , drop = FALSE]
       y_c <- y[loc_x[i, 1]:loc_x[i, 2]]
-      mu_c <- 1 / (1 + exp(c(-X_c %*% beta)))
+      mu_c <- marginal_mean_estimation(X_c, beta, link)
       U_i <- U_c <- rep(0, p + q)
       Ustar_c <- matrix(0, p + q, p + q)
 
       # case when there was only 1 observation for this cluster
       if (loc_x[i, 1] == loc_x[i, 2]) {
-        beta_deriv <- create_beta_derivative(X_c, mu_c)
+        beta_deriv <- create_beta_derivative(X_c, mu_c, link)
         beta_work_cov <- create_beta_covariance(mu_c, n[i])
         beta_resid <- create_beta_residual(mu_c, y_c)
 
@@ -513,7 +547,7 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
       # marginal means and correlation means
 
       # commands for beta
-      beta_deriv <- create_beta_derivative(X_c, mu_c)
+      beta_deriv <- create_beta_derivative(X_c, mu_c, link)
       beta_work_cov <- create_beta_covariance(mu_c, n[i], gamma_c)
       beta_resid <- create_beta_residual(mu_c, y_c)
 
@@ -569,8 +603,7 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
           }
 
           corr_beta_deriv[l, ] <- get_corr_beta_deriv(
-            mu_c, gamma_c[l], j, k, X_c,
-            y_c
+            mu_c, gamma_c[l], j, k, X_c, y_c, link
           )
 
           # Matrix-based multiplicative correction, (I - H_i)^{-1}
@@ -683,6 +716,7 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
   #  X: marginal mean covariates
   #  Z: marginal correlation covariates
   #  n: vector of cluster sample sizes
+  #  link: a specification for the model link function
   #  maxiter: max number of iterations
   #  epsilon: tolerence for convergence
   #  alpha_work_cov_flag: algorithm terminated due to non-positive variance
@@ -719,7 +753,7 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
   #                             definite, terminates if not
   #  not_pos_def_alpadj_flag: checks if the alpha adjustment factor matrix
   #                           is positive definite, terminates if not
-  model_fit <- function(y, X, Z, n, maxiter, epsilon, alpha_work_cov_flag,
+  model_fit <- function(y, X, Z, n, link, maxiter, epsilon, alpha_work_cov_flag,
                         singular_naive_var_flag, not_pos_var_est_flag,
                         alpha_shrink_flag, not_pos_def_work_cov_flag,
                         not_pos_def_alpadj_flag) {
@@ -731,7 +765,7 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
 
     range_flag <- 0
     alpha <- rep(0.01, q)
-    init_res <- initial_beta(y, X, n)
+    init_res <- initial_beta(y, X, n, link)
     beta <- init_res$beta
     Ustar <- init_res$Ustar
 
@@ -747,7 +781,7 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
         not_pos_def_alpadj_flag <- 0
 
         score_res <- score_function(Ustar_prev, beta, alpha, y, X, Z,
-          n, p, q,
+          n, p, q, link,
           flag = 0, range_flag, alpha_work_cov_flag,
           not_pos_def_work_cov_flag,
           not_pos_def_alpadj_flag
@@ -819,7 +853,7 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
     # inference
     var_res <- variance_estimator(
       Ustar_prev, beta, alpha, y, X, Z, n,
-      p, q, alpha_work_cov_flag, not_pos_var_est_flag,
+      p, q, link, alpha_work_cov_flag, not_pos_var_est_flag,
       not_pos_def_work_cov_flag,
       not_pos_def_alpadj_flag
     )
@@ -915,7 +949,6 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
   # reasons for non-results are identified and tallied
   alpha_work_cov_flag <- 0
   singular_naive_var_flag <- 0
-  converge_flag <- 0 # omitted in the arguments for model fit
   not_pos_var_est_flag <- 0
   alpha_shrink_flag <- 0
   not_pos_def_work_cov_flag <- 0
@@ -928,9 +961,14 @@ binomial_maee <- function(y, X, id, Z, maxiter, epsilon, printrange,
   id <- id1
   n <- as.vector(table(id))
 
+  # link default
+  if (is.null(link)) {
+    link <- "logit"
+  }
+
   # fit the GEE2 model
   model_fit_res <- model_fit(
-    y, X, Z, n, maxiter, epsilon, alpha_work_cov_flag,
+    y, X, Z, n, link, maxiter, epsilon, alpha_work_cov_flag,
     singular_naive_var_flag, not_pos_var_est_flag, alpha_shrink_flag,
     not_pos_def_work_cov_flag, not_pos_def_alpadj_flag
   )

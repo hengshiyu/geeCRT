@@ -10,6 +10,7 @@ geemaee(
   id,
   Z,
   family,
+  link = NULL,
   maxiter = 500,
   epsilon = 0.001,
   printrange = TRUE,
@@ -27,7 +28,9 @@ geemaee(
 
 \item{Z}{design matrix for the correlation model, should be all pairs j < k for each cluster}
 
-\item{family}{See corresponding documentation to \code{glm}. The current version only supports \code{'continuous'} and \code{'binomial'}}
+\item{family}{See corresponding documentation to \code{glm}. The current version supports \code{'continuous'}, \code{'binomial'}, \code{'poisson'} and \code{'quasipoisson'}}
+
+\item{link}{a specification for the model link function name}
 
 \item{maxiter}{maximum number of iterations for Fisher scoring updates}
 
@@ -149,7 +152,6 @@ Z <- createzCrossSec(m)
 ### on continous outcome with nested exchangeable correlation structure
 ################################################################
 
-### MAEE
 est_maee_ind_con <- geemaee(
   y = sampleSWCRT$y_con, X = X, id = id,
   Z = Z, family = "continuous",
@@ -160,7 +162,6 @@ est_maee_ind_con <- geemaee(
 print(est_maee_ind_con)
 
 
-### GEE
 est_uee_ind_con <- geemaee(
   y = sampleSWCRT$y_con, X = X, id = id,
   Z = Z, family = "continuous",
@@ -176,7 +177,6 @@ print(est_uee_ind_con)
 ### on binary outcome with nested exchangeable correlation structure
 ###############################################################
 
-### MAEE
 est_maee_ind_bin <- geemaee(
   y = sampleSWCRT$y_bin, X = X, id = id,
   Z = Z, family = "binomial",
@@ -196,6 +196,63 @@ est_uee_ind_bin <- geemaee(
   shrink = "ALPHA", makevone = FALSE
 )
 print(est_uee_ind_bin)
+
+###############################################################
+### (3) Matrix-adjusted estimating equations and GEE
+### on count outcome with nested exchangeable correlation structure
+### using Poisson distribution
+###############################################################
+### MAEE
+est_maee_ind_cnt_poisson = geemaee(
+  y = sampleSWCRT$y_bin,
+  X = X, id = id, Z = Z,
+  family = "poisson",
+  maxiter = 500, epsilon = 0.001,
+  printrange = TRUE, alpadj = TRUE,
+  shrink = "ALPHA", makevone = FALSE
+)
+print(est_maee_ind_cnt_poisson)
+
+
+### GEE
+est_uee_ind_cnt_poisson = geemaee(
+  y = sampleSWCRT$y_bin,
+  X = X, id = id, Z = Z,
+  family = "poisson",
+  maxiter = 500, epsilon = 0.001,
+  printrange = TRUE, alpadj = FALSE,
+  shrink = "ALPHA", makevone = FALSE
+)
+print(est_uee_ind_cnt_poisson)
+
+
+###############################################################
+### (4) Matrix-adjusted estimating equations and GEE
+### on count outcome with nested exchangeable correlation structure
+### using Quasi-Poisson distribution
+###############################################################
+### MAEE
+est_maee_ind_cnt_quasipoisson = geemaee(
+  y = sampleSWCRT$y_bin,
+  X = X, id = id, Z = Z,
+  family = "quasipoisson",
+  maxiter = 500, epsilon = 0.001,
+  printrange = TRUE, alpadj = TRUE,
+  shrink = "ALPHA", makevone = FALSE
+)
+print(est_maee_ind_cnt_quasipoisson)
+
+
+### GEE
+est_uee_ind_cnt_quasipoisson = geemaee(
+  y = sampleSWCRT$y_bin,
+  X = X, id = id, Z = Z,
+  family = "quasipoisson",
+  maxiter = 500, epsilon = 0.001,
+  printrange = TRUE, alpadj = FALSE,
+  shrink = "ALPHA", makevone = FALSE
+)
+print(est_uee_ind_cnt_quasipoisson)
 
 \donttest{
 ## This will elapse longer.
@@ -300,7 +357,7 @@ Li, F., Forbes, A. B., Turner, E. L., Preisser, J. S. (2019). Power and sample s
 
 Li, F. (2020). Design and analysis considerations for cohort stepped wedge cluster randomized trials with a decay correlation structure. Statistics in Medicine, 39(4), 438-455.
 
-Li, F., Yu, H., Rathouz, P., Turner, E. L., Preisser, J. S. (2021). Marginal modeling of cluster-period means and intraclass correlations in stepped wedge designs with binary outcomes. Biostatistics, kxaa056.
+Li, F., Yu, H., Rathouz, P. J., Turner, E. L., & Preisser, J. S. (2022). Marginal modeling of cluster-period means and intraclass correlations in stepped wedge designs with binary outcomes. Biostatistics, 23(3), 772-788.
 }
 \author{
 Hengshi Yu <hengshi@umich.edu>, Fan Li <fan.f.li@yale.edu>, Paul Rathouz <paul.rathouz@austin.utexas.edu>, Elizabeth L. Turner <liz.turner@duke.edu>, John Preisser <jpreisse@bios.unc.edu>

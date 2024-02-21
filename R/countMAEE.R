@@ -1,4 +1,4 @@
-# Continuous responses: GEE and Matrix-adjusted Estimating Equations (MAEE)
+# Count responses: GEE and Matrix-adjusted Estimating Equations (MAEE)
 # for Estimating the Marginal Mean and Correlation Parameters in CRTs
 # Args:
 #  y: a vector specifying the outcome variable across all clusters
@@ -6,6 +6,8 @@
 #  id: a vector specifying cluster identifier
 #  Z: design matrix for the correlation model, should be all pairs j < k
 #    for each cluster
+#  family: See corresponding documentation to \code{glm}. The code supports
+#   \code{'poisson'} and \code{'quasipoisson'}
 #  link: a specification for the model link function
 #  maxiter: maximum number of iterations for Fisher scoring updates
 #  epsilon: tolerance for convergence. The default is 0.001
@@ -31,9 +33,8 @@
 #       correlation parameters with the Fay and Graubard (2001) correction
 #  niter: number of iterations in the Fisher scoring updates for model fitting
 
-
-continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
-                            alpadj, shrink, makevone) {
+count_maee <- function(y, X, id, Z, family, link, maxiter, epsilon, printrange,
+                       alpadj, shrink, makevone) {
   # begin_end
   # Args:
   #  n: Vector of cluster sample sizes
@@ -72,8 +73,10 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
     beta_deriv_j <- create_beta_derivative(X[j, ], mu[j], link)
     beta_deriv_k <- create_beta_derivative(X[k, ], mu[k], link)
 
-    row <- gamma * (beta_deriv_j / (y[j] - mu[j]) +
-      beta_deriv_k / (y[k] - mu[k]))
+    row <- (gamma / 2) * ((1 / mu[j]) * beta_deriv_j +
+      (1 / mu[k]) * beta_deriv_k +
+      2 * beta_deriv_j / (y[j] - mu[j]) +
+      2 * beta_deriv_k / (y[k] - mu[k]))
     return(row)
   }
 
@@ -121,12 +124,13 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
 
   # create_beta_covariance creates covariance for beta estimating equation
   # Args:
-  #  phi: Dispersion parameter
+  #  phi: dispersion parameter
+  #  mu: marginal mean vector
   #  n: sample size for the cluster
   #  gamma: working correlation mean vector
   # Returns:
   #  working covariance matrix for beta estimating equation
-  create_beta_covariance <- function(phi, n, gamma = NULL) {
+  create_beta_covariance <- function(phi, mu, n, gamma = NULL) {
     if (is.null(gamma)) {
       return(as.matrix(phi))
     }
@@ -135,7 +139,7 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
     l <- 1
     for (j in 1:(n - 1)) {
       for (k in (j + 1):n) {
-        B[j, k] <- phi * gamma[l]
+        B[j, k] <- phi * sqrt(mu[j] * mu[k]) * gamma[l]
         l <- l + 1
       }
     }
@@ -179,14 +183,14 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
       beta_resid <- create_beta_residual(mu_c, y_c)
 
       if (loc_x[i, 1] == loc_x[i, 2]) {
-        beta_work_cov <- create_beta_covariance(phi, n[i])
+        beta_work_cov <- create_beta_covariance(phi, mu_c, n[i])
       } else {
         Z_c <- Z[loc_z[i, 1]:loc_z[i, 2], , drop = FALSE]
         gamma_c <- c(Z_c %*% alpha)
-        beta_work_cov <- create_beta_covariance(phi, n[i], gamma_c)
+        beta_work_cov <- create_beta_covariance(phi, mu_c, n[i], gamma_c)
       }
 
-      square_var <- sqrt(rep(phi, n[i]))
+      square_var <- sqrt(c(phi) * mu_c)
       inv_square_var <- 1 / square_var
       beta_deriv_trans <- t(beta_deriv)
 
@@ -210,6 +214,61 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
     }
     phi <- resid_sum_square / (sum(n) - p)
     return(list(phi = phi, not_pos_def_alpadj_flag = not_pos_def_alpadj_flag))
+  }
+
+  # work_cov_alpha computes working covariance of the alpha estimating equation
+  # Args:
+  #  mu: marginal means for the cluster
+  #  j: index of the first outcome
+  #  k: index of the second outcome
+  #  gamma: pairwise correlation for outcome j and k for the cluster
+  #  phi: dispersion parameter
+  # Returns:
+  #  variance of the alpha estimating equation
+  work_cov_alpha <- function(mu, j, k, gamma, phi) {
+    lambda_1 <- sqrt(mu[j] * mu[k]) * gamma
+    lambda_2 <- mu[j] - lambda_1
+    lambda_3 <- mu[k] - lambda_1
+    t1_m1 <- lambda_1
+    t1_m2 <- lambda_1^2 + phi * lambda_1
+    t1_m3 <- lambda_1^3 + (phi + 2) * lambda_1^2 + lambda_1
+    t1_m4 <- lambda_1^4 + 6 * (lambda_1^3) + (6 * phi + 1) * lambda_1^2 +
+      (12 - 11 * phi) * lambda_1
+
+    # second moment of responses product
+    res_second_product <- (phi * mu[j] + mu[j]^2) * (phi * mu[k] + mu[k]^2)
+    res_second_vart1square <- t1_m4 - (t1_m2^2)
+    res_second_moment_t2t3 <- 2 * (lambda_2 + lambda_3) *
+      (t1_m3 - t1_m1 * t1_m2)
+    res_second_moment_t1t2t3 <- 4 * phi * lambda_1 * lambda_2 * lambda_3
+    res_second_moment <- res_second_product + res_second_vart1square +
+      res_second_moment_t2t3 + res_second_moment_t1t2t3
+
+    # first by second moment of responses
+    res_jfir_ksec_moment <- mu[j] * (mu[k]^2 + phi * mu[k]) + 2 * lambda_1^2 +
+      lambda_1 + 2 * phi * lambda_1 * lambda_3
+
+    res_jsec_kfir_moment <- mu[k] * (mu[j]^2 + phi * mu[j]) + 2 * lambda_1^2 +
+      lambda_1 + 2 * phi * lambda_1 * lambda_2
+
+    # first moment of respones product
+    res_first_moment <- mu[j] * mu[k] + phi * lambda_1
+
+    # second moments of responses
+    res_jsec_moment <- phi * mu[j] + mu[j]^2
+    res_ksec_moment <- phi * mu[k] + mu[k]^2
+
+    # residual second moment
+    residual_numerator <- (res_second_moment - 2 * mu[k] *
+      res_jsec_kfir_moment + (mu[k]^2) * res_jsec_moment -
+      2 * mu[j] * res_jfir_ksec_moment + 4 * mu[j] * mu[k] * res_first_moment -
+      3 * (mu[j]^2) * (mu[k]^2) + (mu[j]^2) * res_ksec_moment)
+
+    residual_denominator <- (mu[j] * mu[k] * (phi^2))
+    residual_second_moment <- residual_numerator / residual_denominator
+
+    work_cov <- residual_second_moment - gamma^2
+    return(work_cov)
   }
 
   # score_function generates the score matrix for each cluster and
@@ -279,7 +338,7 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
       # case when there was only 1 observation for this cluster
       if (loc_x[i, 1] == loc_x[i, 2]) {
         beta_deriv <- create_beta_derivative(X_c, mu_c, link)
-        beta_work_cov <- create_beta_covariance(phi, n[i])
+        beta_work_cov <- create_beta_covariance(phi, mu_c, n[i])
         beta_resid <- create_beta_residual(mu_c, y_c)
 
         inv_work_cov <- ginv(beta_work_cov)
@@ -299,13 +358,13 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
       alpha_work_cov <- alpha_resid <- rep(0, choose(n[i], 2))
 
       beta_deriv <- create_beta_derivative(X_c, mu_c, link)
-      beta_work_cov <- create_beta_covariance(phi, n[i], gamma_c)
+      beta_work_cov <- create_beta_covariance(phi, mu_c, n[i], gamma_c)
       beta_resid <- create_beta_residual(mu_c, y_c)
 
       inv_work_cov <- ginv(beta_work_cov)
 
       if (alpadj) {
-        square_var <- sqrt(rep(phi, n[i]))
+        square_var <- sqrt(c(phi) * mu_c)
         inv_square_var <- 1 / square_var
         beta_deriv_trans <- t(beta_deriv)
         omega <- beta_deriv %*% naive_inv_prev %*% beta_deriv_trans
@@ -321,7 +380,7 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
           stop("(V - Omega) is not positive definite")
         }
       } else {
-        square_var <- sqrt(rep(phi, n[i]))
+        square_var <- sqrt(c(phi) * mu_c)
         inv_square_var <- 1 / square_var
         Rx <- (y_c - mu_c) * inv_square_var
         Gi <- tcrossprod(Rx)
@@ -357,7 +416,7 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
             ))
           }
           if (!makevone) {
-            alpha_work_cov[l] <- 1 + gamma_c[l]^2
+            alpha_work_cov[l] <- work_cov_alpha(mu_c, j, k, gamma_c[l], phi)
           }
 
           # insert check that variance is nonnegative
@@ -420,19 +479,25 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
   #  y: the continuous outcome
   #  X: marginal mean covariates
   #  n: vector of cluster sample sizes
+  #  family: the code supports 'poisson' and 'quasipoisson'
   #  link: a specification for the model link function
   # Returns:
   #  beta: vector of marginal mean parameters
   #  Ustar: approximate information matrix
   #  phi: dispersion parameter
-  initial_beta <- function(y, X, n, link) {
+  initial_beta <- function(y, X, n, family, link) {
     if (link == "identity") {
       beta <- solve(t(X) %*% X, t(X) %*% y)
       mu <- marginal_mean_estimation(X, beta, link)
       beta_deriv <- create_beta_derivative(X, mu, link)
       beta_resid <- create_beta_residual(mu, y)
 
-      phi <- sum(beta_resid^2) / (sum(n) - ncol(X))
+      if (family == "quasipoisson") {
+        phi <- sum(beta_resid^2) / (sum(n) - ncol(X))
+      } else if (family == "poisson") {
+        phi <- 1
+      }
+
       Ustar <- t(X) %*% beta_deriv / phi
     } else {
       beta <- solve(t(X) %*% X, t(X) %*% y)
@@ -441,7 +506,12 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
         mu <- marginal_mean_estimation(X, beta, link)
         beta_resid <- create_beta_residual(mu, y)
         beta_deriv <- create_beta_derivative(X, mu, link)
-        phi <- sum(beta_resid^2) / (sum(n) - ncol(X))
+
+        if (family == "quasipoisson") {
+          phi <- sum(beta_resid^2) / (sum(n) - ncol(X))
+        } else if (family == "poisson") {
+          phi <- 1
+        }
 
         z <- t(X) %*% beta_resid
         Ustar <- t(X) %*% beta_deriv / phi
@@ -522,7 +592,6 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
       flag = 1, range_flag = 0, alpha_work_cov_flag,
       not_pos_def_work_cov_flag, not_pos_def_alpadj_flag
     )
-
     U <- score_res$U
     UUtran <- score_res$UUtran
     Ustar <- score_res$Ustar
@@ -574,7 +643,7 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
       # case when there was only 1 observation for this cluster
       if (loc_x[i, 1] == loc_x[i, 2]) {
         beta_deriv <- create_beta_derivative(X_c, mu_c, link)
-        beta_work_cov <- create_beta_covariance(mu_c, n[i])
+        beta_work_cov <- create_beta_covariance(phi, mu_c, n[i])
         beta_resid <- create_beta_residual(mu_c, y_c)
 
         inv_work_cov <- ginv(beta_work_cov)
@@ -609,7 +678,7 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
 
       # commands for beta
       beta_deriv <- create_beta_derivative(X_c, mu_c, link)
-      beta_work_cov <- create_beta_covariance(phi, n[i], gamma_c)
+      beta_work_cov <- create_beta_covariance(phi, mu_c, n[i], gamma_c)
       beta_resid <- create_beta_residual(mu_c, y_c)
 
       inv_work_cov <- ginv(beta_work_cov)
@@ -629,7 +698,7 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
 
       # MAEE
       if (alpadj) {
-        square_var <- sqrt(rep(phi, n[i]))
+        square_var <- sqrt(c(phi) * mu_c)
         inv_square_var <- 1 / square_var
         beta_deriv_trans <- t(beta_deriv)
         omega <- beta_deriv %*% naive_beta %*% beta_deriv_trans
@@ -645,7 +714,7 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
           stop("(V - Omega) is not positive definite")
         }
       } else {
-        square_var <- sqrt(rep(phi, n[i]))
+        square_var <- sqrt(c(phi) * mu_c)
         inv_square_var <- 1 / square_var
         Rx <- (y_c - mu_c) * inv_square_var
         Gi <- tcrossprod(Rx)
@@ -657,7 +726,7 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
       for (j in 1:(n[i] - 1)) {
         for (k in (j + 1):n[i]) {
           if (!makevone) {
-            alpha_work_cov[l] <- 1 + gamma_c[l]^2
+            alpha_work_cov[l] <- work_cov_alpha(mu_c, j, k, gamma_c[l], phi)
           }
           corr_beta_deriv[l, ] <- get_corr_beta_deriv(
             mu_c, gamma_c[l], j, k, X_c, y_c, link
@@ -775,6 +844,7 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
   #  X: marginal mean covariates
   #  Z: marginal correlation covariates
   #  n: vector of cluster sample sizes
+  #  family: the code supports 'poisson' and 'quasipoisson'
   #  link: a specification for the model link function
   #  maxiter: max number of iterations
   #  epsilon: tolerence for convergence
@@ -812,7 +882,8 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
   #                             definite, terminates if not
   #  not_pos_def_alpadj_flag: checks if the alpha adjustment factor matrix
   #                           is positive definite, terminates if not
-  model_fit <- function(y, X, Z, n, link, maxiter, epsilon, alpha_work_cov_flag,
+  model_fit <- function(y, X, Z, n, family, link, maxiter, epsilon,
+                        alpha_work_cov_flag,
                         singular_naive_var_flag, not_pos_var_est_flag,
                         alpha_shrink_flag, not_pos_def_work_cov_flag,
                         not_pos_def_alpadj_flag) {
@@ -824,7 +895,7 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
 
     range_flag <- 0
     alpha <- rep(0.01, q)
-    init_res <- initial_beta(y, X, n, link)
+    init_res <- initial_beta(y, X, n, family, link)
     beta <- init_res$beta
     Ustar <- init_res$Ustar
     phi <- init_res$phi
@@ -900,11 +971,17 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
         theta <- theta + delta
         beta <- theta[1:p]
         alpha <- theta[(p + 1):(p + q)]
-        phi_res <- phi_estimate(
-          Ustar, beta, alpha, y, X, Z, n, p,
-          q, phi, link, not_pos_def_alpadj_flag
-        )
-        phi <- phi_res$phi
+
+        if (family == "quasipoisson") {
+          phi_res <- phi_estimate(
+            Ustar, beta, alpha, y, X, Z, n, p,
+            q, phi, link, not_pos_def_alpadj_flag
+          )
+          phi <- phi_res$phi
+        } else if (family == "poisson") {
+          phi <- 1
+        }
+
         converge <- (max(abs(delta)) <= epsilon)
       } else {
         singular_naive_var_flag <- 1
@@ -1028,12 +1105,12 @@ continuous_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
 
   # link default
   if (is.null(link)) {
-    link <- "identity"
+    link <- "log"
   }
 
   # fit the GEE2 model
   model_fit_res <- model_fit(
-    y, X, Z, n, link, maxiter, epsilon, alpha_work_cov_flag,
+    y, X, Z, n, family, link, maxiter, epsilon, alpha_work_cov_flag,
     singular_naive_var_flag, not_pos_var_est_flag, alpha_shrink_flag,
     not_pos_def_work_cov_flag, not_pos_def_alpadj_flag
   )

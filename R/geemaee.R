@@ -3,7 +3,8 @@
 #' @param X design matrix for the marginal mean model, including the intercept
 #' @param id a vector specifying cluster identifier
 #' @param Z design matrix for the correlation model, should be all pairs j < k for each cluster
-#' @param family See corresponding documentation to \code{glm}. The current version only supports \code{'continuous'} and \code{'binomial'}
+#' @param family See corresponding documentation to \code{glm}. The current version supports \code{'continuous'}, \code{'binomial'}, \code{'poisson'} and \code{'quasipoisson'}
+#' @param link a specification for the model link function name
 #' @param maxiter maximum number of iterations for Fisher scoring updates
 #' @param epsilon tolerance for convergence. The default is 0.001
 #' @param printrange print details of range violations. The default is \code{TRUE}
@@ -43,7 +44,7 @@
 #'
 #' Li, F. (2020). Design and analysis considerations for cohort stepped wedge cluster randomized trials with a decay correlation structure. Statistics in Medicine, 39(4), 438-455.
 #'
-#' Li, F., Yu, H., Rathouz, P., Turner, E. L., Preisser, J. S. (2021). Marginal modeling of cluster-period means and intraclass correlations in stepped wedge designs with binary outcomes. Biostatistics, kxaa056.
+#' Li, F., Yu, H., Rathouz, P. J., Turner, E. L., & Preisser, J. S. (2022). Marginal modeling of cluster-period means and intraclass correlations in stepped wedge designs with binary outcomes. Biostatistics, 23(3), 772-788.
 #' @export
 #' @examples
 #'
@@ -115,7 +116,7 @@
 #' ### on continous outcome with nested exchangeable correlation structure
 #' ################################################################
 #'
-#' ### MAEE
+### MAEE
 #' est_maee_ind_con <- geemaee(
 #'   y = sampleSWCRT$y_con, X = X, id = id,
 #'   Z = Z, family = "continuous",
@@ -126,7 +127,7 @@
 #' print(est_maee_ind_con)
 #'
 #'
-#' ### GEE
+### GEE
 #' est_uee_ind_con <- geemaee(
 #'   y = sampleSWCRT$y_con, X = X, id = id,
 #'   Z = Z, family = "continuous",
@@ -142,7 +143,7 @@
 #' ### on binary outcome with nested exchangeable correlation structure
 #' ###############################################################
 #'
-#' ### MAEE
+### MAEE
 #' est_maee_ind_bin <- geemaee(
 #'   y = sampleSWCRT$y_bin, X = X, id = id,
 #'   Z = Z, family = "binomial",
@@ -162,6 +163,63 @@
 #'   shrink = "ALPHA", makevone = FALSE
 #' )
 #' print(est_uee_ind_bin)
+#'
+#' ###############################################################
+#' ### (3) Matrix-adjusted estimating equations and GEE
+#' ### on count outcome with nested exchangeable correlation structure
+#' ### using Poisson distribution
+#' ###############################################################
+#' ### MAEE
+#' est_maee_ind_cnt_poisson = geemaee(
+#'   y = sampleSWCRT$y_bin,
+#'   X = X, id = id, Z = Z,
+#'   family = "poisson",
+#'   maxiter = 500, epsilon = 0.001,
+#'   printrange = TRUE, alpadj = TRUE,
+#'   shrink = "ALPHA", makevone = FALSE
+#' )
+#' print(est_maee_ind_cnt_poisson)
+#'
+#'
+#' ### GEE
+#' est_uee_ind_cnt_poisson = geemaee(
+#'   y = sampleSWCRT$y_bin,
+#'   X = X, id = id, Z = Z,
+#'   family = "poisson",
+#'   maxiter = 500, epsilon = 0.001,
+#'   printrange = TRUE, alpadj = FALSE,
+#'   shrink = "ALPHA", makevone = FALSE
+#' )
+#' print(est_uee_ind_cnt_poisson)
+#'
+#'
+#' ###############################################################
+#' ### (4) Matrix-adjusted estimating equations and GEE
+#' ### on count outcome with nested exchangeable correlation structure
+#' ### using Quasi-Poisson distribution
+#' ###############################################################
+#' ### MAEE
+#' est_maee_ind_cnt_quasipoisson = geemaee(
+#'   y = sampleSWCRT$y_bin,
+#'   X = X, id = id, Z = Z,
+#'   family = "quasipoisson",
+#'   maxiter = 500, epsilon = 0.001,
+#'   printrange = TRUE, alpadj = TRUE,
+#'   shrink = "ALPHA", makevone = FALSE
+#' )
+#' print(est_maee_ind_cnt_quasipoisson)
+#'
+#'
+#' ### GEE
+#' est_uee_ind_cnt_quasipoisson = geemaee(
+#'   y = sampleSWCRT$y_bin,
+#'   X = X, id = id, Z = Z,
+#'   family = "quasipoisson",
+#'   maxiter = 500, epsilon = 0.001,
+#'   printrange = TRUE, alpadj = FALSE,
+#'   shrink = "ALPHA", makevone = FALSE
+#' )
+#' print(est_uee_ind_cnt_quasipoisson)
 #'
 #' \donttest{
 #' ## This will elapse longer.
@@ -262,16 +320,21 @@
 
 
 geemaee <- function(
-    y, X, id, Z, family, maxiter = 500, epsilon = 0.001,
+    y, X, id, Z, family, link = NULL, maxiter = 500, epsilon = 0.001,
     printrange = TRUE, alpadj = FALSE, shrink = "ALPHA", makevone = TRUE) {
   if (family == "continuous") {
     continuous_maee(
-      y, X, id, Z, maxiter, epsilon, printrange, alpadj,
+      y, X, id, Z, link, maxiter, epsilon, printrange, alpadj,
       shrink, makevone
     )
   } else if (family == "binomial") {
     binomial_maee(
-      y, X, id, Z, maxiter, epsilon, printrange, alpadj,
+      y, X, id, Z, link, maxiter, epsilon, printrange, alpadj,
+      shrink, makevone
+    )
+  } else if (family %in% c("poisson", "quasipoisson")) {
+    count_maee(
+      y, X, id, Z, family, link, maxiter, epsilon, printrange, alpadj,
       shrink, makevone
     )
   }

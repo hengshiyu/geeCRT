@@ -68,7 +68,7 @@ The `geemaee()` function implements the matrix-adjusted GEE or regular GEE devel
 
 For the individual-level data, we use the `geemaee()` function to estimate the marginal mean and correlation parameters in CRTs. We use two simulated stepped wedge CRT datasets with true nested exchangeable correlation structure to illustrate the `geemaee()` function examples. We first create an auxiliary function `createzCrossSec()` to help create the design matrix for the estimating equations of the correlation parameters. We then collect design matrix `X` for the mean parameters with five period indicators and the treatment indicator. 
 
-We implement the `geemaee()` function on both the continuous outcome and binary outcome using the nested exchangeable correlation structure, and consider both matrix-adjusted estimating equations (MAEE) with `alpadj = TRUE` and uncorrected generalized estimating equations (GEE) with `alpadj = FALSE`. For the `shrink` argument, we use the `"ALPHA"` method to tune step sizes and focus on using estimated variances in the correlation estimating equations rather than using unit variances by specifying `makevone = FALSE`. 
+We implement the `geemaee()` function on both the continuous, binary and count outcomes using the nested exchangeable correlation structure, and consider both matrix-adjusted estimating equations (MAEE) with `alpadj = TRUE` and uncorrected generalized estimating equations (GEE) with `alpadj = FALSE`. We use the binary outcome for the count outcome type of the `geemaee()` function, and consider both `poisson` and `quasipoisson` distributions for the count outcome. For the `shrink` argument, we use the `"ALPHA"` method to tune step sizes and focus on using estimated variances in the correlation estimating equations rather than using unit variances by specifying `makevone = FALSE`. 
 
 
 ```r
@@ -161,6 +161,51 @@ est_uee_ind_bin = geemaee(y = sampleSWCRT$y_bin,
                           printrange = TRUE, alpadj = FALSE, 
                           shrink = "ALPHA", makevone = FALSE)
 print(est_uee_ind_bin)
+
+### (3) Matrix-adjusted estimating equations and GEE 
+### on count outcome with nested exchangeable correlation structure
+### using Poisson distribution
+
+### MAEE
+est_maee_ind_cnt_poisson = geemaee(y = sampleSWCRT$y_bin, 
+                                   X = X, id = id, Z = Z, 
+                                   family = "poisson", 
+                                   maxiter = 500, epsilon = 0.001, 
+                                   printrange = TRUE, alpadj = TRUE, 
+                                   shrink = "ALPHA", makevone = FALSE)
+print(est_maee_ind_cnt_poisson)
+
+### GEE
+est_uee_ind_cnt_poisson = geemaee(y = sampleSWCRT$y_bin, 
+                                  X = X, id = id, Z = Z, 
+                                  family = "poisson", 
+                                  maxiter = 500, epsilon = 0.001, 
+                                  printrange = TRUE, alpadj = FALSE, 
+                                  shrink = "ALPHA", makevone = FALSE)
+print(est_uee_ind_cnt_poisson)
+
+
+### (4) Matrix-adjusted estimating equations and GEE 
+### on count outcome with nested exchangeable correlation structure
+### using Quasi-Poisson distribution
+
+### MAEE
+est_maee_ind_cnt_quasipoisson = geemaee(y = sampleSWCRT$y_bin,
+                                        X = X, id = id, Z = Z,
+                                        family = "quasipoisson",
+                                        maxiter = 500, epsilon = 0.001, 
+                                        printrange = TRUE, alpadj = TRUE, 
+                                        shrink = "ALPHA", makevone = FALSE)
+print(est_maee_ind_cnt_quasipoisson)
+
+### GEE
+est_uee_ind_cnt_quasipoisson = geemaee(y = sampleSWCRT$y_bin,
+                                      X = X, id = id, Z = Z,
+                                      family = "quasipoisson",
+                                      maxiter = 500, epsilon = 0.001,
+                                      printrange = TRUE, alpadj = FALSE,
+                                      shrink = "ALPHA", makevone = FALSE)
+print(est_uee_ind_cnt_quasipoisson)
 
 
 ########################################################################
