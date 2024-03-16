@@ -1,3 +1,5 @@
+[![](https://cranlogs.r-pkg.org/badges/geeCRT)](https://cran.r-project.org/package=geeCRT)
+
 # geeCRT: a package for implementing the bias-corrected generalized estimating equations in analyzing cluster randomized trials
 Hengshi Yu, Fan Li, Paul Rathouz, Elizabeth L. Turner, John Preisser 
 
