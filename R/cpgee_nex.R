@@ -3,6 +3,44 @@ cpgee_nex <- function(
     alpadj) {
     ##################################################################################### MODULE: BEGINEND creates two vectors that have the start and
     ##################################################################################### end points for each cluster
+  
+    # ginv_scaleup calculate the generalized inverse matrix
+    # Args:
+    #  input_matrix: matrix for which the Moore-Penrose inverse is required
+    #  threshold: threshold limit to decide no scaling
+    #  tolerance: tolerance to define positive singular values
+    #  maxiter: maximum number of iterations
+    # Returns: 
+    #  Moore-Penrose inverse
+    ginv_scaleup <- function(input_matrix, threshold = 0.01, tolerance = 1e-13, maxiter = 20) {
+      summary_stat = as.vector(summary(as.vector(input_matrix)))
+      low_range_stat = summary_stat[3:1]
+      # min, q1, median, mean, q3, max
+      scale_factor = 1
+      ginv_matrix = tryCatch(ginv(input_matrix  * scale_factor) * scale_factor, error = function(e) e)
+      error_message_condition = inherits(tryCatch(ginv(input_matrix * scale_factor) * scale_factor, error = function(e) e),   "error")
+      
+      niter_ginv = 0
+      value_for_scale = low_range_stat[1]
+      while (error_message_condition & niter_ginv < maxiter) {
+        scale_factor = 1 / (ceiling(value_for_scale) + 1e-8)
+        ginv_matrix = tryCatch(ginv(input_matrix  * scale_factor) * scale_factor, error = function(e) e)
+        error_message_condition = inherits(tryCatch(ginv(input_matrix * scale_factor) * scale_factor, error = function(e) e),   "error")
+        
+        niter_ginv = niter_ginv + 1
+        if (niter_ginv < 3) {
+          value_for_scale = low_range_stat[niter_ginv + 1]
+        } else {
+          value_for_scale = value_for_scale * 10
+        }
+        
+      }
+      if (error_message_condition) {
+        return (matrix(0, nrow = ncol(input_matrix), ncol = nrow(input_matrix)))
+      } else {
+        return(ginv_matrix)
+      }
+    }
 
     # INPUT n: vector of cluster sizes
 
@@ -174,7 +212,7 @@ cpgee_nex <- function(
                       NPSDADJFLAG) {
         U <- rep(0, p + q)
         UUtran <- Ustar <- matrix(0, p + q, p + q)
-        naiveold <- ginv(Ustarold[1:p, 1:p]) # needed for Hi1 below
+        naiveold <- ginv_scaleup(Ustarold[1:p, 1:p]) # needed for Hi1 below
 
         locx <- BEGINEND(n)
         locz <- BEGINEND(choose(n + 1, 2))
@@ -201,7 +239,7 @@ cpgee_nex <- function(
             A <- CREATEA(mu_c, y_c)
             D <- CREATED(mu_c, alpha, n[i], m_c)
 
-            INVB <- ginv(B)
+            INVB <- ginv_scaleup(B)
             CtinvB <- t(C) %*% INVB
             Hi1 <- C %*% naiveold %*% CtinvB
             G_c <- tcrossprod(y_c - mu_c)
@@ -214,7 +252,7 @@ cpgee_nex <- function(
 
 
                 if (psd_vmin == 1) {
-                    Ci <- B %*% ginv(vminomega)
+                    Ci <- B %*% ginv_scaleup(vminomega)
                     G_c <- Ci %*% G_c
                 } else {
                     NPSDADJFLAG <- 1
@@ -410,8 +448,8 @@ cpgee_nex <- function(
         NPSDFLAG <- SCORE_RES$NPSDFLAG
         NPSDADJFLAG <- SCORE_RES$NPSDADJFLAG
 
-        naive <- ginv(Ustar[1:p, 1:p])
-        naivealp <- ginv(Ustar[(p + 1):(p + q), (p + 1):(p + q)])
+        naive <- ginv_scaleup(Ustar[1:p, 1:p])
+        naivealp <- ginv_scaleup(Ustar[(p + 1):(p + q), (p + 1):(p + q)])
 
         # new commands to compute INV(I - H1)
         eigenRES1 <- eigen(naive)
@@ -458,7 +496,7 @@ cpgee_nex <- function(
             A <- CREATEA(mu_c, y_c)
             D <- CREATED(mu_c, alpha, n[i], m_c)
 
-            INVB <- ginv(B)
+            INVB <- ginv_scaleup(B)
             U_i[1:p] <- t(C) %*% INVB %*% A
 
             CtinvB <- t(C) %*% INVB
@@ -486,7 +524,7 @@ cpgee_nex <- function(
 
 
                 if (psd_vmin == 1) {
-                    Ci <- B %*% ginv(vminomega)
+                    Ci <- B %*% ginv_scaleup(vminomega)
                     G_c <- Ci %*% G_c
                 } else {
                     NPSDADJFLAG <- 1
@@ -554,8 +592,8 @@ cpgee_nex <- function(
             UUtran_c_array[, , i] <- UUtran_c
         }
 
-        inustar[1:p, 1:p] <- ginv(Ustar[1:p, 1:p])
-        inustar[(p + 1):(p + q), (p + 1):(p + q)] <- ginv(Ustar[(p +
+        inustar[1:p, 1:p] <- ginv_scaleup(Ustar[1:p, 1:p])
+        inustar[(p + 1):(p + q), (p + 1):(p + q)] <- ginv_scaleup(Ustar[(p +
             1):(p + q), (p + 1):(p + q)])
         inustar[(p + 1):(p + q), 1:p] <- inustar[
             (p + 1):(p + q),

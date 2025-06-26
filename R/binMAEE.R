@@ -33,6 +33,47 @@
 
 binomial_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
                           alpadj, shrink, makevone) {
+  
+  
+  # ginv_scaleup calculate the generalized inverse matrix
+  # Args:
+  #  input_matrix: matrix for which the Moore-Penrose inverse is required
+  #  threshold: threshold limit to decide no scaling
+  #  tolerance: tolerance to define positive singular values
+  #  maxiter: maximum number of iterations
+  # Returns:
+  #  Moore-Penrose inverse
+  ginv_scaleup <- function(input_matrix, threshold = 0.01, tolerance = 1e-13, maxiter = 20) {
+    summary_stat = as.vector(summary(as.vector(input_matrix)))
+    low_range_stat = summary_stat[3:1]
+    # min, q1, median, mean, q3, max
+    scale_factor = 1
+    ginv_matrix = tryCatch(ginv(input_matrix  * scale_factor) * scale_factor, error = function(e) e)
+    error_message_condition = inherits(tryCatch(ginv(input_matrix * scale_factor) * scale_factor, error = function(e) e),   "error")
+    
+    niter_ginv = 0
+    value_for_scale = low_range_stat[1]
+    while (error_message_condition & niter_ginv < maxiter) {
+      scale_factor = 1 / (ceiling(value_for_scale) + 1e-8)
+      ginv_matrix = tryCatch(ginv(input_matrix  * scale_factor) * scale_factor, error = function(e) e)
+      error_message_condition = inherits(tryCatch(ginv(input_matrix * scale_factor) * scale_factor, error = function(e) e),   "error")
+      
+      niter_ginv = niter_ginv + 1
+      if (niter_ginv < 3) {
+        value_for_scale = low_range_stat[niter_ginv + 1]
+      } else {
+        value_for_scale = value_for_scale * 10
+      }
+      
+    }
+    if (error_message_condition) {
+      return (matrix(0, nrow = ncol(input_matrix), ncol = nrow(input_matrix)))
+    } else {
+      return(ginv_matrix)
+    }
+  }
+  
+  
   # begin_end
   # Args:
   #  n: Vector of cluster sample sizes
@@ -197,7 +238,7 @@ binomial_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
     U <- rep(0, p + q)
     # meat and bread (information) of the sandwich variance estimator
     UUtran <- Ustar <- matrix(0, p + q, p + q)
-    naive_inv_prev <- ginv(Ustar_prev[1:p, 1:p])
+    naive_inv_prev <- ginv_scaleup(Ustar_prev[1:p, 1:p])
     # needed for Hi1 below
 
     loc_x <- begin_end(n)
@@ -217,7 +258,7 @@ binomial_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
         beta_work_cov <- create_beta_covariance(mu_c, n[i])
         beta_resid <- create_beta_residual(mu_c, y_c)
 
-        inv_work_cov <- ginv(beta_work_cov)
+        inv_work_cov <- ginv_scaleup(beta_work_cov)
         U_c[1:p] <- t(beta_deriv) %*% inv_work_cov %*% beta_resid
         UUtran_c <- tcrossprod(U_c)
 
@@ -238,7 +279,7 @@ binomial_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
       beta_work_cov <- create_beta_covariance(mu_c, n[i], gamma_c)
       beta_resid <- create_beta_residual(mu_c, y_c)
 
-      inv_work_cov <- ginv(beta_work_cov)
+      inv_work_cov <- ginv_scaleup(beta_work_cov)
 
       if (alpadj) {
         square_var <- sqrt(mu_c * (1 - mu_c))
@@ -249,8 +290,8 @@ binomial_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
         psd_vmin <- is_pos_def(v_min_omega)
 
         if (psd_vmin == 1) {
-          Ci <- diag(inv_square_var) %*% (beta_work_cov %*%
-            ginv(v_min_omega)) %*% diag(square_var)
+          Ci <- diag(inv_square_var) %*% (beta_work_cov %*% 
+                  ginv_scaleup(v_min_omega)) %*% diag(square_var)
           Rx <- (y_c - mu_c) * inv_square_var
           Gi <- tcrossprod(Rx)
         } else {
@@ -469,8 +510,8 @@ binomial_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
     not_pos_def_work_cov_flag <- score_res$not_pos_def_work_cov_flag
     not_pos_def_alpadj_flag <- score_res$not_pos_def_alpadj_flag
 
-    naive_beta <- ginv(Ustar[1:p, 1:p])
-    naive_alpha <- ginv(Ustar[(p + 1):(p + q), (p + 1):(p + q)])
+    naive_beta <- ginv_scaleup(Ustar[1:p, 1:p])
+    naive_alpha <- ginv_scaleup(Ustar[(p + 1):(p + q), (p + 1):(p + q)])
 
     # new commands to compute INV(I - H1)
     eigen_res_1 <- eigen(naive_beta)
@@ -515,7 +556,7 @@ binomial_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
         beta_work_cov <- create_beta_covariance(mu_c, n[i])
         beta_resid <- create_beta_residual(mu_c, y_c)
 
-        inv_work_cov <- ginv(beta_work_cov)
+        inv_work_cov <- ginv_scaleup(beta_work_cov)
         U_i[1:p] <- t(beta_deriv) %*% inv_work_cov %*% beta_resid
 
         ai1 <- inv_work_cov
@@ -551,7 +592,7 @@ binomial_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
       beta_work_cov <- create_beta_covariance(mu_c, n[i], gamma_c)
       beta_resid <- create_beta_residual(mu_c, y_c)
 
-      inv_work_cov <- ginv(beta_work_cov)
+      inv_work_cov <- ginv_scaleup(beta_work_cov)
       U_i[1:p] <- t(beta_deriv) %*% inv_work_cov %*% beta_resid
 
       # commands for generalized inverse - beta
@@ -577,7 +618,7 @@ binomial_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
 
         if (psd_vmin == 1) {
           Ci <- diag(inv_square_var) %*% (beta_work_cov %*%
-            ginv(v_min_omega)) %*% diag(square_var)
+            ginv_scaleup(v_min_omega)) %*% diag(square_var)
           Rx <- (y_c - mu_c) * inv_square_var
           Gi <- tcrossprod(Rx)
         } else {
@@ -649,8 +690,8 @@ binomial_maee <- function(y, X, id, Z, link, maxiter, epsilon, printrange,
       UUtran_c_array[, , i] <- UUtran_c
     }
 
-    inv_Ustar[1:p, 1:p] <- ginv(Ustar[1:p, 1:p])
-    inv_Ustar[(p + 1):(p + q), (p + 1):(p + q)] <- ginv(Ustar[(p +
+    inv_Ustar[1:p, 1:p] <- ginv_scaleup(Ustar[1:p, 1:p])
+    inv_Ustar[(p + 1):(p + q), (p + 1):(p + q)] <- ginv_scaleup(Ustar[(p +
       1):(p + q), (p + 1):(p + q)])
     inv_Ustar[(p + 1):(p + q), 1:p] <- -inv_Ustar[
       (p + 1):(p + q),
